@@ -63,7 +63,123 @@ function Boom({ show }) {
 
 const SIDES = ["top", "right", "bottom", "left"];
 
-function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
+// The opening hero word — one word at a time, cycling through the brand's
+// values. Each word holds ~5s, then a staggered per-letter 3D flip + blur
+// carries it out as the next flips in. Easy to edit: just change this list.
+const HERO_WORDS = [
+  "Care", "Comfort", "Calm", "Confidence", "Connection", "Consistency",
+  "Clarity", "Compassion", "Companionship", "Continuity", "Commitment", "Closeness",
+];
+
+// Vertical carousel: every second a RANDOM word rolls DOWNWARD into place — it
+// enters from the top while the previous word slides out the bottom. Two layers
+// (in / out) animate each step, so there is no wrap seam. The font-size is fit
+// to the viewport width (measured against the longest word in the real serif)
+// so every word — even "Companionship." — always fits on one line.
+//   ready  — loader has cleared; start rolling (and the fade-in plays).
+//   paused — opening scroll began; freeze the current word as the hero blurs away.
+function WordCycler({ ready, paused }) {
+  const N = HERO_WORDS.length;
+  const pick = (avoid) => { let n = Math.floor(Math.random() * N); if (n === avoid) n = (n + 1) % N; return n; };
+  const [pair, setPair] = useState(() => ({ from: null, to: Math.floor(Math.random() * N), step: 0 }));
+  const [fontPx, setFontPx] = useState(null);
+
+  useEffect(() => {                            // one random word per second, downward
+    if (!ready || paused) return;
+    const t = setTimeout(() => setPair((p) => ({ from: p.to, to: pick(p.to), step: p.step + 1 })), 1000);
+    return () => clearTimeout(t);
+  }, [pair.step, ready, paused]);
+
+  // fit-to-width: one uniform size at which the LONGEST word fits ~90vw
+  useEffect(() => {
+    let cancelled = false;
+    const measure = () => {
+      const base = 100;
+      const ctx = document.createElement("canvas").getContext("2d");
+      ctx.font = `400 ${base}px "DM Serif Display", "DM Serif Text", Georgia, serif`;
+      let widest = 1;
+      for (const w of HERO_WORDS) widest = Math.max(widest, ctx.measureText(w).width);
+      const px = Math.max(40, Math.min(200, (base * window.innerWidth * 0.9) / widest));
+      if (!cancelled) setFontPx(px);
+    };
+    measure();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!cancelled) measure(); });
+    window.addEventListener("resize", measure);
+    return () => { cancelled = true; window.removeEventListener("resize", measure); };
+  }, []);
+
+  return (
+    <div className={"hero-roll" + (ready ? " go" : "")}
+         style={fontPx ? { fontSize: fontPx + "px" } : undefined}
+         aria-label={HERO_WORDS[pair.to]}>
+      <div className="hero-roll-window" key={pair.step}>
+        {pair.from != null && <span className="hero-roll-word out" aria-hidden="true">{HERO_WORDS[pair.from]}</span>}
+        <span className="hero-roll-word in" aria-hidden="true">{HERO_WORDS[pair.to]}</span>
+      </div>
+    </div>
+  );
+}
+
+// One role's copy + demo slot. Used for the live page and, during a directional
+// nav transition, for the outgoing layer that slides away.
+function DiveInfo({ role }) {
+  return (
+    <React.Fragment>
+      <div className="di-eyebrow">{role.label}</div>
+      <h3>{role.title}</h3>
+      <p className="di-lede">{role.lede}</p>
+      <div className="di-feat">
+        <div className="di-feat-head">{FEAT_HEAD[role.key]}</div>
+        <div className="di-rows">
+          {role.rows.map((row, j) => (
+            <div className="di-row" key={j}>
+              <span className="di-rt"><b>{row.t}</b><span>{row.d}</span></span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="di-demo">
+        <div className="di-demo-head">See it in action</div>
+        <div className="di-demo-frame" role="img" aria-label={role.label + " demo video"}>
+          <span className="di-demo-play" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M8 5.5v13l11-6.5-11-6.5z" fill="currentColor" /></svg>
+          </span>
+          <span className="di-demo-cap">{role.label} walkthrough · demo</span>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+// Floating role-navigation pill — only present while a role page (dive) is open.
+// Right edge (vertical) on laptop/desktop, bottom (horizontal) on phones. Lets you
+// switch roles, jump back to the four pillars, or head to the beta CTA.
+function RoleNav({ roles, active, onSelect, onBack, onCTA, visible }) {
+  return (
+    <div className={"role-nav-wrap" + (visible ? " is-visible" : "")} aria-hidden={!visible}>
+      <nav className="role-nav" aria-label="Role navigation">
+        <button type="button" className="rn-back" onClick={onBack} aria-label="Back to the four pillars (home)">
+          <span className="rn-brand">
+            <span className="rb-a">UMC</span>
+            <span className="rb-b" aria-hidden="true">Home</span>
+          </span>
+        </button>
+        <div className="rn-tabs" role="tablist" aria-label="Select a role">
+          {roles.map((r, i) => (
+            <button key={r.key} type="button" role="tab" aria-selected={i === active}
+                    className={"rn-tab" + (i === active ? " active" : "")}
+                    onClick={() => onSelect(i)}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="rn-cta" onClick={onCTA}>Join the beta</button>
+      </nav>
+    </div>
+  );
+}
+
+function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
   const [phase, setPhase] = useState("hero");   // hero | holding | boom | bloomed | dive
   const [introP, setIntroP] = useState(0);       // 0..1 opening progress (auto-tweened)
   const [holdP, setHoldP] = useState(0);         // 0..1 press-and-hold progress
@@ -74,7 +190,11 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
   const [closing, setClosing] = useState(false); // dive-out in progress
   const [focused, setFocused] = useState(false); // rack-focus blur on opened role
   const [cardIdx, setCardIdx] = useState(0);     // active card in the mobile swipe carousel
+  const [enterDir, setEnterDir] = useState(null); // direction the live role page slides in from (nav transition)
+  const [leaving, setLeaving] = useState(null);   // outgoing role layer during a nav transition: { from, exitDir }
+  const [navReady, setNavReady] = useState(false);// role nav slides in ~1s after the page opens
   const cardsRef = useRef(null);
+  const transTimer = useRef(null);
 
   const stageRef = useRef(null);
   const crossRef = useRef(null);
@@ -129,12 +249,77 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
     requestAnimationFrame(() => { cross.style.transition = prevT || ""; });
   };
 
+  // Place each prong label ON its prong, centred in the gap between the role
+  // button (.cap) and the centre cross — measured live so it's correct at any
+  // viewport. The label's --bg background masks the connector line behind it.
+  const positionLabels = () => {
+    const hubInner = document.querySelector(".hub-inner");
+    if (!hubInner || hubInner.offsetParent === null) return;        // hidden on phones
+    const crp = crossRef.current ? crossRef.current.getBoundingClientRect() : null;
+    if (!crp) return;
+    const MARGIN = 12;                                              // min clearance from button + cross
+    // pass 1 — measure each label and decide whether it fits in its gap
+    const items = [];
+    document.querySelectorAll(".hub .prong").forEach((prong) => {
+      const name = prong.querySelector(".prong-name");
+      const capEl = prong.querySelector(".cap");
+      if (!name || !capEl) return;
+      name.style.transform = "translate(-50%, -50%)";               // unrotated baseline (for measuring)
+      name.style.fontWeight = "400";                                // measure at rest weight (a hovered label is bold/wider)
+      const cap = capEl.getBoundingClientRect();
+      const nr = name.getBoundingClientRect();                      // natural (horizontal) label size
+      name.style.fontWeight = "";                                   // restore (hover bold handled by CSS)
+      const side = prong.classList.contains("prong-top") ? "top"
+                : prong.classList.contains("prong-bottom") ? "bottom"
+                : prong.classList.contains("prong-left") ? "left" : "right";
+      // gap along the radial axis between the button's inner edge and the cross
+      const gap = side === "top"    ? crp.top - cap.bottom
+                : side === "bottom" ? cap.top - crp.bottom
+                : side === "left"   ? crp.left - cap.right
+                :                     cap.left - crp.right;
+      // the text's width runs ALONG the radial axis (it's rotated for top/bottom)
+      const fits = gap >= nr.width + 2 * MARGIN;
+      items.push({ name, cap, nr, side, fits });
+    });
+    // if ANY label is too tight for its gap, switch them ALL to hover-popup mode
+    const tight = items.some((it) => !it.fits);
+    // pass 2 — place every label consistently (CSS drives the transform from the vars)
+    items.forEach(({ name, cap, nr, side }) => {
+      const capCx = cap.left + cap.width / 2, capCy = cap.top + cap.height / 2;
+      let tx = 0, ty = 0, rot = 0;
+      if (!tight) {                                                 // persistent label ON the prong, centred in the gap
+        if (side === "top")         ty = (cap.bottom + crp.top) / 2 - capCy;
+        else if (side === "bottom") ty = (cap.top + crp.bottom) / 2 - capCy;
+        else if (side === "left")   tx = (cap.right + crp.left) / 2 - capCx;
+        else if (side === "right")  tx = (cap.left + crp.right) / 2 - capCx;
+        if (side === "top" || side === "bottom") rot = -90;        // Patient + Pharmacy run vertically
+      } else {                                                      // hover-popup: just outside the circle (above for top, below the rest)
+        ty = (side === "top" ? -1 : 1) * (cap.height / 2 + nr.height / 2 + 14);
+      }
+      name.classList.toggle("hover-pop", tight);                   // hidden until hover, then animates in
+      name.classList.toggle("is-placed", !tight);
+      name.style.setProperty("--tx", Math.round(tx) + "px");
+      name.style.setProperty("--ty", Math.round(ty) + "px");
+      name.style.setProperty("--rot", rot + "deg");
+      name.style.transform = "";                                   // hand the transform back to CSS (uses the vars above)
+    });
+  };
+
   useEffect(() => {
     let raf = 0;
-    const onResize = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(repositionCross); };
+    const onResize = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { repositionCross(); positionLabels(); }); };
     window.addEventListener("resize", onResize);
     return () => { window.removeEventListener("resize", onResize); cancelAnimationFrame(raf); };
   }, []);
+
+  // position the labels once the prongs have bloomed in and settled (the last
+  // prong finishes at ~1.32s: 0.6s delay + 0.72s). On dive-return they are
+  // already placed from before, so no immediate call is needed here.
+  useEffect(() => {
+    if (phase !== "bloomed") return;
+    const t = setTimeout(positionLabels, 1500);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   const ready = introP >= 0.999 && phase === "hero";
 
@@ -179,14 +364,14 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
     const onWheel = (e) => {
       const p = phaseRef.current;
       if (p === "hero") { e.preventDefault(); trigger(e.deltaY); }
-      else if (p !== "bloomed") e.preventDefault();
+      else if (p !== "bloomed" && p !== "dive") e.preventDefault();   // let the open role page scroll
     };
     let touchY = null;
     const onTouchStart = (e) => { touchY = e.touches[0].clientY; };
     const onTouchMove = (e) => {
       const p = phaseRef.current;
       if (p === "hero") { e.preventDefault(); const y = e.touches[0].clientY; trigger(touchY - y); touchY = y; }
-      else if (p !== "bloomed") e.preventDefault();
+      else if (p !== "bloomed" && p !== "dive") e.preventDefault();   // let the open role page scroll
     };
     const onKey = (e) => {
       if (phaseRef.current === "hero" && ["ArrowDown", "PageDown", " ", "Enter"].includes(e.key)) { e.preventDefault(); runAuto(); }
@@ -358,7 +543,26 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
     fromCircleRef.current = circle ? circle.getBoundingClientRect() : null;
     flipRef.current = "in";
     setClosing(false); setFocused(false);
+    setEnterDir(null); setLeaving(null);          // fresh open uses the per-line reveal, not a slide
     setActive(i); setPhase("dive");
+  };
+
+  // switch roles from the nav (or arrows) with a directional page transition.
+  // Laptop: tabs stack vertically (right nav) → slide vertically; phone: tabs in a
+  // row (bottom nav) → slide horizontally. Direction follows the tab order.
+  const switchRole = (j) => {
+    if (phaseRef.current !== "dive" || closingRef.current) return;
+    const i = activeRef.current;
+    if (i == null || j === i || j < 0 || j >= ROLES.length) return;
+    const horizontal = typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
+    const fwd = j > i;
+    const exitDir  = horizontal ? (fwd ? "left"  : "right") : (fwd ? "up"   : "down");
+    const enter    = horizontal ? (fwd ? "right" : "left")  : (fwd ? "down" : "up");
+    if (transTimer.current) clearTimeout(transTimer.current);
+    setEnterDir(enter);
+    setLeaving({ from: i, exitDir });
+    setActive(j);
+    transTimer.current = setTimeout(() => setLeaving(null), 540);
   };
 
   const closeRole = () => {
@@ -393,6 +597,26 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
       if (diveRef.current) { const d = diveRef.current; d.style.transition = "none"; d.style.clipPath = ""; }
     }, DIVE_OUT);
   };
+
+  // role-nav CTA: close the role page, then glide the (now-unlocked) shell to the beta section
+  const goToBeta = () => {
+    if (phaseRef.current !== "dive" || closingRef.current) return;
+    closeRole();
+    const shell = document.querySelector(".scroll-shell");
+    const dl = document.getElementById("download");
+    if (!shell || !dl) return;
+    setTimeout(() => {
+      const top = dl.getBoundingClientRect().top - shell.getBoundingClientRect().top + shell.scrollTop;
+      shell.scrollTo({ top, behavior: "smooth" });
+    }, DIVE_OUT + 140);
+  };
+
+  // the role nav slides in ~1s after a role page opens; hides immediately on close
+  useEffect(() => {
+    if (phase !== "dive") { setNavReady(false); return; }
+    const t = setTimeout(() => setNavReady(true), 1000);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   // FLIP the big symbol from the clicked pillar to fullscreen (slow + natural),
   // and reveal the role via a circular iris that grows out of the clicked circle.
@@ -438,8 +662,8 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
     const onKey = (e) => {
       if (phaseRef.current !== "dive" || closingRef.current) return;
       if (e.key === "Escape") closeRole();
-      else if (["ArrowRight", "ArrowDown"].includes(e.key)) setActive((a) => (a + 1) % ROLES.length);
-      else if (["ArrowLeft", "ArrowUp"].includes(e.key)) setActive((a) => (a - 1 + ROLES.length) % ROLES.length);
+      else if (["ArrowRight", "ArrowDown"].includes(e.key)) switchRole((activeRef.current + 1) % ROLES.length);
+      else if (["ArrowLeft", "ArrowUp"].includes(e.key)) switchRole((activeRef.current - 1 + ROLES.length) % ROLES.length);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -464,11 +688,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
 
       {/* hero layer — auto blur morphs the words into the black */}
       <div className="hero-layer" style={{ filter: `blur(${blur}px)`, opacity: heroOpacity }}>
-        <div className="words">
-          <div className="word"><span>Care.</span></div>
-          <div className="word"><span>Connect.</span></div>
-          <div className="word muted"><span>Comfort.</span></div>
-        </div>
+        <WordCycler ready={heroReady} paused={introP > 0.02} />
         <div className="scroll-cue"><span>Scroll to begin</span><span className="line" /></div>
       </div>
 
@@ -553,38 +773,33 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
       {/* camera DIVE overlay — circular iris from the clicked circle + rack focus */}
       <div ref={diveRef} className={"dive" + (focused ? " focused" : "") + (closing ? " closing" : "")} data-show={phase === "dive"}>
         <div className="dive-bg" />
-        <div className="dive-icon" ref={diveIconRef}>
+        <div className="dive-icon" ref={diveIconRef} data-role={roleNow ? roleNow.key : undefined}>
           {roleNow && <Cap name={roleNow.icon} />}
         </div>
-        {roleNow && (
-          <div className="dive-info" key={roleNow.key}>
-            <div className="di-eyebrow">{roleNow.label}</div>
-            <h3>{roleNow.title}</h3>
-            <p className="di-lede">{roleNow.lede}</p>
-            <div className="di-feat">
-              <div className="di-feat-head">{FEAT_HEAD[roleNow.key]}</div>
-              <div className="di-rows">
-                {roleNow.rows.map((row, j) => (
-                  <div className="di-row" key={j}>
-                    <span className="di-rt"><b>{row.t}</b><span>{row.d}</span></span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="di-demo">
-              <div className="di-demo-head">See it in action</div>
-              <div className="di-demo-frame" role="img"
-                   aria-label={roleNow.label + " demo video"}>
-                <span className="di-demo-play" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none"><path d="M8 5.5v13l11-6.5-11-6.5z" fill="currentColor" /></svg>
-                </span>
-                <span className="di-demo-cap">{roleNow.label} walkthrough · demo</span>
-              </div>
-            </div>
+        {/* outgoing role layer — slides away during a directional nav transition */}
+        {roleNow && leaving && (
+          <div className="dive-info di-leaving" data-exit={leaving.exitDir}
+               key={"out-" + ROLES[leaving.from].key} aria-hidden="true">
+            <DiveInfo role={ROLES[leaving.from]} />
           </div>
         )}
-        <button className="dive-back" onClick={closeRole}>← All pillars</button>
+        {/* live role layer */}
+        {roleNow && (
+          <div className="dive-info" data-enter={enterDir || undefined} key={roleNow.key}>
+            <DiveInfo role={roleNow} />
+          </div>
+        )}
       </div>
+
+      {/* role-page navigation — switch roles, return to the pillars, or join the beta */}
+      <RoleNav
+        roles={ROLES}
+        active={active != null ? active : 0}
+        visible={navReady}
+        onSelect={switchRole}
+        onBack={closeRole}
+        onCTA={goToBeta}
+      />
     </section>
   );
 }

@@ -78,11 +78,12 @@ function Loader({ onDone }) {
 }
 
 function App() {
+  const [revealed, setRevealed] = React.useState(false);
   return (
     <React.Fragment>
-      <Loader onDone={() => {}} />
+      <Loader onDone={() => setRevealed(true)} />
       <div className="scroll-shell">
-        <IntroStage holdMs={2000} diveMs={800} maxSpin={10} hubCrossScale={0.30} />
+        <IntroStage holdMs={2000} diveMs={800} maxSpin={10} hubCrossScale={0.30} heroReady={revealed} />
         <Marquee />
         <Trust />
         <Download />

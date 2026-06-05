@@ -206,8 +206,14 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
   // ---- press & hold ----
   const hold = useRef({ raf: 0, start: 0, last: 0, angle: 0, speed: 0 });
 
-  const startHold = () => {
+  const startHold = (e) => {
     if (!(introPRef.current >= 0.999 && phaseRef.current === "hero")) return;
+    // Keep receiving pointer events even if the finger/mouse drifts off the
+    // small cross: capture the pointer and track the release on window. A tiny
+    // movement during the hold (very common on touch) must not cancel it —
+    // only an actual release (pointerup) should.
+    try { if (e && e.pointerId != null && crossRef.current) crossRef.current.setPointerCapture(e.pointerId); } catch (_) {}
+    window.addEventListener("pointerup", endHold);
     if (crossRef.current) crossRef.current.style.transition = "none";
     setPhase("holding");
     const h = hold.current;
@@ -234,6 +240,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
 
   // release early -> reverse-spin back to upright over the SAME time it was held
   const endHold = () => {
+    window.removeEventListener("pointerup", endHold);
     if (phaseRef.current !== "holding") return;
     const h = hold.current;
     cancelAnimationFrame(h.raf);
@@ -258,6 +265,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
   // explosion: cross keeps spinning, DECELERATES to upright while it recolors
   // black and drifts to the bloom centre — then the pillars emerge out of it.
   const explode = () => {
+    window.removeEventListener("pointerup", endHold);
     cancelAnimationFrame(hold.current.raf);
     setHoldP(1);
     setPhase("settle");
@@ -470,8 +478,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale }) {
 
         <div className={"cross-wrap" + (ready ? " ready" : "")} data-show={true}>
           <div className="cross" ref={crossRef}
-               onPointerDown={(e) => { e.preventDefault(); startHold(); }}
-               onPointerUp={endHold} onPointerLeave={endHold} onPointerCancel={endHold}
+               onPointerDown={(e) => { e.preventDefault(); startHold(e); }}
                onContextMenu={(e) => e.preventDefault()}
                role="button" aria-label="Hold to reveal the four pillars">
             <div className="arm v" style={{ transform: `translate(-50%,-50%) scaleY(${buildV})`, opacity: buildV }} />

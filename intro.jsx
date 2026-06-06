@@ -122,7 +122,12 @@ function WordCycler({ ready, paused }) {
 
 // One role's copy + demo slot. Used for the live page and, during a directional
 // nav transition, for the outgoing layer that slides away.
-function DiveInfo({ role }) {
+function DiveInfo({ role, onPlayVideo }) {
+  const hasVideo = !!role.demoVideo;
+  const playVideo = (e) => {
+    if (!hasVideo || !onPlayVideo) return;
+    onPlayVideo(role.demoVideo, e.currentTarget.getBoundingClientRect());
+  };
   return (
     <React.Fragment>
       <div className="di-eyebrow">{role.label}</div>
@@ -140,12 +145,22 @@ function DiveInfo({ role }) {
       </div>
       <div className="di-demo">
         <div className="di-demo-head">See it in action</div>
-        <div className="di-demo-frame" role="img" aria-label={role.label + " demo video"}>
-          <span className="di-demo-play" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M8 5.5v13l11-6.5-11-6.5z" fill="currentColor" /></svg>
-          </span>
-          <span className="di-demo-cap">{role.label} walkthrough · demo</span>
-        </div>
+        {hasVideo ? (
+          <button type="button" className="di-demo-frame is-playable" onClick={playVideo}
+                  aria-label={"Play the " + role.label + " walkthrough video"}>
+            <span className="di-demo-play" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M8 5.5v13l11-6.5-11-6.5z" fill="currentColor" /></svg>
+            </span>
+            <span className="di-demo-cap">{role.label} walkthrough · play ▸</span>
+          </button>
+        ) : (
+          <div className="di-demo-frame" role="img" aria-label={role.label + " demo video"}>
+            <span className="di-demo-play" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M8 5.5v13l11-6.5-11-6.5z" fill="currentColor" /></svg>
+            </span>
+            <span className="di-demo-cap">{role.label} walkthrough · demo</span>
+          </div>
+        )}
       </div>
     </React.Fragment>
   );
@@ -193,8 +208,15 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
   const [enterDir, setEnterDir] = useState(null); // direction the live role page slides in from (nav transition)
   const [leaving, setLeaving] = useState(null);   // outgoing role layer during a nav transition: { from, exitDir }
   const [navReady, setNavReady] = useState(false);// role nav slides in ~1s after the page opens
+  const [video, setVideo] = useState(null);       // { src } while the fullscreen video player is mounted
+  const [videoClosing, setVideoClosing] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false); // drives the backdrop fade (true once grown in)
   const cardsRef = useRef(null);
   const transTimer = useRef(null);
+  const videoModalRef = useRef(null);   // the box that FLIP-grows from the frame to fullscreen
+  const videoElRef = useRef(null);      // the <video> element itself
+  const videoFromRef = useRef(null);    // the clicked demo-frame rect (drives the grow)
+  const videoTimer = useRef(null);
 
   const stageRef = useRef(null);
   const crossRef = useRef(null);
@@ -618,6 +640,70 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
     return () => clearTimeout(t);
   }, [phase]);
 
+  // ---- fullscreen video player: GROWS out of the clicked demo frame, plays with sound ----
+  const VIDEO_GROW = reduce ? 220 : 640;
+
+  const openVideo = (src, fromRect) => {
+    videoFromRef.current = fromRect || null;
+    setVideoClosing(false);
+    setVideoOpen(false);
+    setVideo({ src });
+  };
+
+  const closeVideo = () => {
+    if (!video || videoClosing) return;
+    setVideoClosing(true);
+    setVideoOpen(false);                              // fade the backdrop back out
+    if (videoElRef.current) { try { videoElRef.current.pause(); } catch (_) {} }
+    const box = videoModalRef.current;
+    const from = videoFromRef.current;
+    if (box && from && from.width) {                  // shrink back down into the frame
+      const base = box.getBoundingClientRect();
+      const scale = from.width / base.width;
+      const tx = (from.left + from.width / 2) - (base.left + base.width / 2);
+      const ty = (from.top + from.height / 2) - (base.top + base.height / 2);
+      box.style.transition = `transform ${VIDEO_GROW}ms ${DIVE_EASE}, opacity ${Math.round(VIDEO_GROW * 0.7)}ms ease`;
+      box.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+      box.style.opacity = "0";
+    }
+    if (videoTimer.current) clearTimeout(videoTimer.current);
+    videoTimer.current = setTimeout(() => {
+      setVideo(null); setVideoClosing(false); videoFromRef.current = null;
+    }, VIDEO_GROW);
+  };
+
+  // FLIP-grow the player from the frame rect to fullscreen, then start playback
+  useLayoutEffect(() => {
+    if (!video) return;
+    const box = videoModalRef.current;
+    const from = videoFromRef.current;
+    if (box && from && from.width) {
+      const base = box.getBoundingClientRect();       // fullscreen target rect
+      const scale = from.width / base.width;
+      const tx = (from.left + from.width / 2) - (base.left + base.width / 2);
+      const ty = (from.top + from.height / 2) - (base.top + base.height / 2);
+      box.style.transition = "none";
+      box.style.transformOrigin = "center center";
+      box.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+      box.style.opacity = "0.55";
+      void box.offsetWidth;                           // commit the start frame
+      box.style.transition = `transform ${VIDEO_GROW}ms ${DIVE_EASE}, opacity ${Math.round(VIDEO_GROW * 0.5)}ms ease`;
+      box.style.transform = "translate(0px, 0px) scale(1)";
+      box.style.opacity = "1";
+    }
+    requestAnimationFrame(() => setVideoOpen(true));   // fade the backdrop in
+    const v = videoElRef.current;
+    if (v) { try { v.currentTime = 0; } catch (_) {} const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+  }, [video]);
+
+  // Esc closes the video FIRST (capture phase, so it doesn't also close the role page)
+  useEffect(() => {
+    if (!video) return;
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); closeVideo(); } };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [video, videoClosing]);
+
   // FLIP the big symbol from the clicked pillar to fullscreen (slow + natural),
   // and reveal the role via a circular iris that grows out of the clicked circle.
   useLayoutEffect(() => {
@@ -786,7 +872,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
         {/* live role layer */}
         {roleNow && (
           <div className="dive-info" data-enter={enterDir || undefined} key={roleNow.key}>
-            <DiveInfo role={roleNow} />
+            <DiveInfo role={roleNow} onPlayVideo={openVideo} />
           </div>
         )}
       </div>
@@ -800,6 +886,20 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
         onBack={closeRole}
         onCTA={goToBeta}
       />
+
+      {/* fullscreen video player — grows out of the clicked demo frame */}
+      {video && (
+        <div className={"video-modal" + (videoOpen ? " is-open" : "") + (videoClosing ? " is-closing" : "")}>
+          <div className="vm-backdrop" onClick={closeVideo} />
+          <button type="button" className="vm-close" onClick={closeVideo} aria-label="Close video">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+          </button>
+          <div className="vm-stage" ref={videoModalRef}>
+            <video ref={videoElRef} className="vm-video" src={video.src}
+                   controls playsInline preload="auto" />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

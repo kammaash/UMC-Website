@@ -38,11 +38,12 @@ const ROLES = [
   {
     key: "doctor", side: "right", num: "02", label: "Doctor", icon: "stethoscope",
     title: "Doctor",
-    lede: "A live window into adherence. Prescribe, monitor, and intervene before a missed dose becomes a problem.",
+    lede: "Take your clinic fully digital — on us. Prescribe by voice, track adherence live, and leave handwritten scripts and paper records behind.",
+    demoVideo: "assets/UMC DoctorVideo-2.mp4",
     rows: [
-      { t: "Adherence dashboards", d: "Visual charts of how reliably each patient takes their medication over time." },
-      { t: "Remote prescriptions", d: "Push new regimens straight to a patient's reminder schedule from anywhere." },
-      { t: "PDF clinical reports", d: "Export shareable, printable adherence summaries for records and consults." },
+      { t: "Free digital clinic setup", d: "We give you a free server to take your clinic fully digital — records, schedules and patient history, set up at no cost." },
+      { t: "Voice prescriptions", d: "Prescribe by simply speaking. No more handwritten scripts or paper files — it's logged and sent to the patient instantly." },
+      { t: "Live patient tracking", d: "Watch adherence as it happens — see exactly when each patient takes their medication, in real time." },
     ],
   },
   {

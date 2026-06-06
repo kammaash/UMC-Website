@@ -170,6 +170,21 @@ function DiveInfo({ role, onPlayVideo }) {
 // Right edge (vertical) on laptop/desktop, bottom (horizontal) on phones. Lets you
 // switch roles, jump back to the four pillars, or head to the beta CTA.
 function RoleNav({ roles, active, onSelect, onBack, onCTA, visible }) {
+  const tabsRef = useRef(null);
+  // when the selected role changes, bring its tab fully into view in the
+  // horizontally-scrolling strip (phones). No-op when nothing overflows (desktop).
+  useEffect(() => {
+    const strip = tabsRef.current;
+    if (!strip || !visible) return;
+    if (strip.scrollWidth <= strip.clientWidth + 1) return;     // nothing to scroll
+    const btn = strip.querySelector(".rn-tab.active");
+    if (!btn) return;
+    const sr = strip.getBoundingClientRect();
+    const br = btn.getBoundingClientRect();
+    const btnLeftInContent = (br.left - sr.left) + strip.scrollLeft;
+    const target = btnLeftInContent - (strip.clientWidth - br.width) / 2; // centre the tab
+    strip.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+  }, [active, visible]);
   return (
     <div className={"role-nav-wrap" + (visible ? " is-visible" : "")} aria-hidden={!visible}>
       <nav className="role-nav" aria-label="Role navigation">
@@ -182,7 +197,7 @@ function RoleNav({ roles, active, onSelect, onBack, onCTA, visible }) {
             <span className="rb-b" aria-hidden="true">Home</span>
           </span>
         </button>
-        <div className="rn-tabs" role="tablist" aria-label="Select a role">
+        <div className="rn-tabs" role="tablist" aria-label="Select a role" ref={tabsRef}>
           {roles.map((r, i) => (
             <button key={r.key} type="button" role="tab" aria-selected={i === active}
                     className={"rn-tab" + (i === active ? " active" : "")}

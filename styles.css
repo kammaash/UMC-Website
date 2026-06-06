@@ -591,7 +591,9 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
   .rn-back-ico { display: block; }
   .rn-back .rb-a { opacity: 0; transform: translateY(-85%); }   /* hide the UMC wordmark */
   .rn-back .rb-b { opacity: 1; transform: translateY(0); }      /* show "Home" persistently */
-  .rn-tabs { flex-direction: row; flex: 1 1 auto; justify-content: center; gap: 3px; overflow-x: auto; scrollbar-width: none; }
+  /* "safe center" keeps tabs centred when they fit, but falls back to start
+     alignment when they overflow — so the first tab is never clipped out of reach */
+  .rn-tabs { flex-direction: row; flex: 1 1 auto; justify-content: safe center; gap: 3px; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth; }
   .rn-tabs::-webkit-scrollbar { display: none; }
   .rn-tab { padding: 10px 12px; font-size: 12.5px; }
   .rn-cta { padding: 10px 14px; font-size: 12px; }

@@ -174,6 +174,9 @@ function RoleNav({ roles, active, onSelect, onBack, onCTA, visible }) {
     <div className={"role-nav-wrap" + (visible ? " is-visible" : "")} aria-hidden={!visible}>
       <nav className="role-nav" aria-label="Role navigation">
         <button type="button" className="rn-back" onClick={onBack} aria-label="Back to the four pillars (home)">
+          <svg className="rn-back-ico" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M14.5 5.5L8 12l6.5 6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           <span className="rn-brand">
             <span className="rb-a">UMC</span>
             <span className="rb-b" aria-hidden="true">Home</span>

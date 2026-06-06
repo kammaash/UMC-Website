@@ -555,6 +555,7 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
   font-family: var(--serif); font-weight: 400; font-size: 1.18rem; line-height: 1; letter-spacing: 0.01em;
 }
 .rn-back:hover, .rn-back:focus-visible { color: #fff; background: rgba(243,243,243,0.08); }
+.rn-back-ico { display: none; width: 18px; height: 18px; flex: none; }  /* desktop relies on the UMC→Home hover flip */
 /* brand wordmark that flips UMC → Home on hover */
 .rn-brand { position: relative; display: inline-grid; place-items: center; overflow: hidden; }
 .rn-brand > span { grid-area: 1 / 1; transition: opacity 0.26s var(--ease-out), transform 0.26s var(--ease-out); }
@@ -585,7 +586,11 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
   }
   .role-nav-wrap.is-visible { transform: translateX(-50%) translateY(0); }
   .role-nav { flex-direction: row; align-items: center; gap: 6px; border-radius: 999px; padding: 7px; }
-  .rn-back { padding: 8px 13px; font-size: 1.05rem; }
+  /* touch has no hover: make the home control an unmistakable "‹ Home" button */
+  .rn-back { padding: 8px 14px 8px 11px; font-size: 1.05rem; gap: 6px; }
+  .rn-back-ico { display: block; }
+  .rn-back .rb-a { opacity: 0; transform: translateY(-85%); }   /* hide the UMC wordmark */
+  .rn-back .rb-b { opacity: 1; transform: translateY(0); }      /* show "Home" persistently */
   .rn-tabs { flex-direction: row; flex: 1 1 auto; justify-content: center; gap: 3px; overflow-x: auto; scrollbar-width: none; }
   .rn-tabs::-webkit-scrollbar { display: none; }
   .rn-tab { padding: 10px 12px; font-size: 12.5px; }

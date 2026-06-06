@@ -6,3 +6,6 @@
 
 # local render screenshots
 umc-clean-render.png
+
+# macOS junk
+.DS_Store

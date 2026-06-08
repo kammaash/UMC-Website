@@ -12,3 +12,6 @@ umc-clean-render.png
 
 # JetBrains IDE config
 .idea/
+
+# Local Claude Code config
+.claude/

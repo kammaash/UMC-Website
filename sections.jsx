@@ -108,10 +108,10 @@ const FAQS = [
   { q: "Is it really free?", a: "Yes — the app is free during the beta, with no card required. For doctors, the digital clinic setup stays free; UMC is funded through pharmacy and diagnostic transactions, not by charging you." },
 ];
 
-function FAQ() {
+function FAQ({ panelRef }) {
   const [open, setOpen] = React.useState(0);
   return (
-    <section className="snap faq sec-pad" id="faq" data-screen-label="FAQ">
+    <section className="faq faq-panel sec-pad" id="faq" data-screen-label="FAQ" ref={panelRef}>
       <Reveal><div className="sec-head">
         <h2>Questions,<br />answered</h2>
       </div></Reveal>
@@ -168,33 +168,113 @@ function Footer() {
   );
 }
 
-// LINKS — finale: a single oversized "Join the beta" call to action
-// that fills the whole closing section.
-function Links() {
+// ENDING — sticky dark FAQ panel that shrinks + rounds off as the light
+// contact footer is revealed behind it. Scroll progress drives --p (0→1).
+function Ending() {
+  const wrapRef = React.useRef(null);
+  const panelRef = React.useRef(null);
+  React.useEffect(() => {
+    const wrap = wrapRef.current, panel = panelRef.current;
+    if (!wrap || !panel) return;
+    const shell = document.querySelector(".scroll-shell");
+    const scroller = shell || window;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const vh = shell ? shell.clientHeight : window.innerHeight;
+      const shellTop = shell ? shell.getBoundingClientRect().top : 0;
+      const wrapTop = wrap.getBoundingClientRect().top - shellTop;
+      const travel = wrap.offsetHeight - vh;
+      const raw = travel > 0 ? (-wrapTop / travel) : 0;
+      const p = Math.max(0, Math.min(1, raw / 0.5)); // squeeze into a card over the first half of the lift
+      panel.style.setProperty("--p", p.toFixed(4));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      scroller.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
   return (
-    <footer className="snap links" id="links" data-screen-label="Join the beta">
-      <div className="links-inner">
-        <Reveal><span className="links-kicker">Now in TestFlight</span></Reveal>
+    <div className="ending-wrap" ref={wrapRef}>
+      <FAQ panelRef={panelRef} />
+      <ContactFooter />
+    </div>
+  );
+}
 
-        <Reveal delay={0.06}>
-          <a className="join-cta" href="#download" onClick={smoothTo("download")}>
-            <span className="jc-text">
-              <span className="a">Join the beta</span>
-              <span className="b" aria-hidden="true">Join the beta</span>
-            </span>
-            <span className="jc-arrow" aria-hidden="true">↗</span>
-          </a>
-        </Reveal>
+function ContactFooter() {
+  const [copied, setCopied] = React.useState(null);
+  const copyToClipboard = (key, text) => (e) => {
+    e.preventDefault();
+    const done = () => {
+      setCopied(key);
+      setTimeout(() => setCopied((c) => (c === key ? null : c)), 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(done);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand("copy"); } catch (_) {}
+      document.body.removeChild(ta); done();
+    }
+  };
+  return (
+    <footer className="ending-footer" id="links" data-screen-label="Get in touch">
+      {/* top: oversized brand sign-off */}
+      <div className="ef-signoff">
+        <div className="ef-mark">UMC</div>
+        <p className="ef-mark-sub">Care that never sleeps,<br />connected everywhere.</p>
+      </div>
 
-        <Reveal delay={0.12}><p className="join-sub">Be among the first to keep care on schedule. Free while in beta.</p></Reveal>
+      {/* middle: navigation + contact + CTA */}
+      <div className="ef-top">
+        <div className="ef-cols">
+          <nav className="ef-col" aria-label="Explore">
+            <h4>Explore</h4>
+            <a href="#intro" onClick={smoothTo("intro")}>How it works</a>
+            <a href="#faq" onClick={smoothTo("faq")}>FAQ</a>
+            <a href="#download" onClick={smoothTo("download")}>Get the app</a>
+          </nav>
 
-        <Reveal delay={0.16}><div className="links-base">
-          <span className="big-mark">Unified Medical Care</span>
-          <div className="lb-row">
-            <span>© 2026 Unified Medical Care</span>
-            <span>Care · Connect · Comfort</span>
+          <div className="ef-col ef-contact-col">
+            <h4>Contact</h4>
+            <a className={"ef-call" + (copied === "phone" ? " is-copied" : "")} href="tel:+916304519244"
+               onClick={copyToClipboard("phone", "+91 63045 19244")}>
+              <span className="ef-ic" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.1 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6A2 2 0 0 1 22 16.9z"/></svg>
+              </span>
+              {copied === "phone" ? "Copied to clipboard" : "Call us"}
+            </a>
+            <a className={"ef-mail" + (copied === "email" ? " is-copied" : "")} href="mailto:admin@unifiedmedicalcare.com"
+               onClick={copyToClipboard("email", "admin@unifiedmedicalcare.com")}>
+              <span className="ef-ic" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+              </span>
+              {copied === "email" ? "Copied to clipboard" : "Email us"}
+            </a>
+            <a className="ef-wa" href="https://wa.me/916304519244" target="_blank" rel="noopener">
+              <span className="ef-ic" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm0 18.1a8 8 0 0 1-4.1-1.1l-.3-.2-2.9.8.8-2.8-.2-.3A8 8 0 1 1 12 20.1zm4.4-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.5 6.5 0 0 1-1.9-1.2 7.3 7.3 0 0 1-1.3-1.7c-.1-.2 0-.4.1-.5l.4-.5.2-.3a.5.5 0 0 0 0-.5L9 6.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 2.8 2.8 0 0 0-.9 2.1 4.9 4.9 0 0 0 1 2.6 11 11 0 0 0 4.3 3.8c.6.3 1.1.4 1.5.5a3.4 3.4 0 0 0 1.5.1c.5-.1 1.4-.6 1.6-1.1s.2-1 .1-1.1z"/></svg>
+              </span>
+              WhatsApp
+            </a>
           </div>
-        </div></Reveal>
+        </div>
+
+        <a className="ef-join" href="#download" onClick={smoothTo("download")}>Join the beta</a>
+      </div>
+
+      {/* bottom: legal */}
+      <div className="ef-legal">
+        <span>© 2026 Unified Medical Care</span>
+        <span>ASHOKANAND CREATIONS PRIVATE LIMITED</span>
       </div>
     </footer>
   );
@@ -243,4 +323,4 @@ function Reveal({ children, delay = 0 }) {
   );
 }
 
-Object.assign(window, { Marquee, Features, Trust, Download, FAQ, Footer, Links, Reveal, smoothTo });
+Object.assign(window, { Marquee, Features, Trust, Download, FAQ, Footer, Ending, ContactFooter, Reveal, smoothTo });

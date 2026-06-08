@@ -87,8 +87,7 @@ function App() {
         <Marquee />
         <Trust />
         <Download />
-        <FAQ />
-        <Links />
+        <Ending />
       </div>
     </React.Fragment>
   );

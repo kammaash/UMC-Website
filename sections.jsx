@@ -89,8 +89,7 @@ function Download() {
           <span className="b-ic">{Icons.apple()}</span>
           <span className="b-tx"><small>Join the beta on</small><b>TestFlight</b></span>
         </a>
-        {/* TODO: replace href with the hosted APK download URL */}
-        <a className="btn ghost" href="/downloads/umc-android.apk" download>
+        <a className="btn apk" href="/downloads/umc-android.apk" download>
           <span className="b-ic">{Icons.download()}</span>
           <span className="b-tx"><small>Android</small><b>Download APK</b></span>
         </a>

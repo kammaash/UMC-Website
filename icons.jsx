@@ -8,6 +8,7 @@ const I = ({ d, children, sw = 1.6 }) => (
 
 const Icons = {
   bell: () => <I d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" />,
+  download: () => <I><path d="M12 3v11M8 10l4 4 4-4M5 20h14" /></I>,
   alarm: () => <I><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2 2M5 3 2 6M22 6l-3-3" /></I>,
   users: () => <I><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></I>,
   pill: () => <I><path d="M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7zM8.5 8.5l7 7" /></I>,
@@ -38,12 +39,13 @@ const ROLES = [
   {
     key: "doctor", side: "right", num: "02", label: "Doctor", icon: "stethoscope",
     title: "Doctor",
-    lede: "Take your clinic fully digital — on us. Prescribe by voice, track adherence live, and leave handwritten scripts and paper records behind.",
+    cta: "Get started free",
+    lede: "Run your clinic, not the paperwork. Go fully digital — free. Prescribe by voice, track your patients in real time, and leave handwritten scripts and paper files behind.",
     demoVideo: "assets/UMC DoctorVideo-2.mp4",
     rows: [
-      { t: "Free digital clinic setup", d: "We give you a free server to take your clinic fully digital — records, schedules and patient history, set up at no cost." },
-      { t: "Voice prescriptions", d: "Prescribe by simply speaking. No more handwritten scripts or paper files — it's logged and sent to the patient instantly." },
-      { t: "Live patient tracking", d: "Watch adherence as it happens — see exactly when each patient takes their medication, in real time." },
+      { t: "Free digital clinic setup", d: "Your records, schedules and patient history — set up and hosted for you, at no cost. No staff, no software to buy, no setup on your end." },
+      { t: "Voice prescriptions", d: "Prescribe by speaking. No more handwritten scripts or paper files — it's logged and sent to your patient instantly." },
+      { t: "Live patient tracking", d: "Know who's actually taking their medication. See each patient's adherence in real time, without chasing anyone." },
     ],
   },
   {

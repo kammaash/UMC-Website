@@ -67,8 +67,8 @@ const SIDES = ["top", "right", "bottom", "left"];
 // values. Each word holds ~5s, then a staggered per-letter 3D flip + blur
 // carries it out as the next flips in. Easy to edit: just change this list.
 const HERO_WORDS = [
-  "Care", "Comfort", "Calm", "Confidence", "Connection", "Consistency",
-  "Clarity", "Compassion", "Companionship", "Continuity", "Commitment", "Closeness",
+  "Care", "Connection", "Clarity", "Confidence", "Continuity", "Consent",
+  "Coordination", "Convenience", "Consistency", "Commitment", "Compassion", "Calm",
 ];
 
 // Vertical carousel: every second a RANDOM word rolls DOWNWARD into place — it
@@ -206,7 +206,7 @@ function RoleNav({ roles, active, onSelect, onBack, onCTA, visible }) {
             </button>
           ))}
         </div>
-        <button type="button" className="rn-cta" onClick={onCTA}>Join the beta</button>
+        <button type="button" className="rn-cta" onClick={onCTA}>{(roles[active] && roles[active].cta) || "Join the beta"}</button>
       </nav>
     </div>
   );
@@ -869,7 +869,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
 
       {/* post-bloom title */}
       <div className="stage-head" data-show={headShown}>
-        <span className="eyebrow">An ecosystem, not an app</span>
+        <span className="eyebrow">An ecosystem</span>
         <h2>The four pillars of modern healthcare</h2>
         <div className="hint">Select a pillar to dive in →</div>
       </div>

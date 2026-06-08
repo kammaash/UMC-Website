@@ -9,3 +9,6 @@ umc-clean-render.png
 
 # macOS junk
 .DS_Store
+
+# JetBrains IDE config
+.idea/

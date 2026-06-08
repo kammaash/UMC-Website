@@ -50,9 +50,9 @@ function Features() {
 }
 
 const TRUST = [
-  { icon: "lock", t: "Encrypted by default", d: "Every record and reminder is protected in transit and at rest on trusted cloud infrastructure." },
-  { icon: "shield", t: "Consent-first sharing", d: "Patients decide exactly who joins their care circle — caregivers, doctors, nobody by accident." },
-  { icon: "users", t: "Role-scoped access", d: "Doctors, pharmacies and diagnostics only ever see what their role needs. Nothing more." },
+  { icon: "lock", t: "Encrypted by default", d: "Every record and reminder is encrypted in transit and at rest, on trusted cloud infrastructure." },
+  { icon: "shield", t: "Consent-first sharing", d: "The patient decides exactly who joins their care circle — caregivers, doctors, pharmacies, diagnostics. Nobody by accident." },
+  { icon: "users", t: "Role-scoped access", d: "Every role — doctors, pharmacies, diagnostics — sees only what their work needs, and nothing else. Your data is never the product." },
 ];
 
 function Trust() {
@@ -62,7 +62,7 @@ function Trust() {
       <div className="trust-grid">
         <Reveal><div className="lead">
           <div className="big">Health data is the<br />most personal data.<br />We treat it that way.</div>
-          <p>Unified Medical Care is built on consent, encryption, and the principle that a care circle is something you choose — never something assumed.</p>
+          <p>Unified Medical Care is built on consent and encryption — every record stays private, and a care circle is something the patient chooses, never something assumed.</p>
         </div></Reveal>
         <Reveal delay={0.1}><div className="points">
           {TRUST.map((p) => (
@@ -81,20 +81,21 @@ function Download() {
   return (
     <section className="snap download" id="download" data-screen-label="Download">
       <div className="glow" />
-      <div className="badge">Now in TestFlight beta</div>
+      <div className="badge">Now in open beta</div>
       <h2>Care that<br /><em>never sleeps.</em></h2>
-      <p>Join the beta and be among the first to put every dose, every reminder, and every caregiver in one calm place.</p>
+      <p>Join the beta and connect everyone in care — patients, doctors, pharmacies and diagnostics — in one calm, always-on place.</p>
       <div className="ctas">
         <a className="btn primary" href="#" onClick={(e) => e.preventDefault()}>
           <span className="b-ic">{Icons.apple()}</span>
           <span className="b-tx"><small>Join the beta on</small><b>TestFlight</b></span>
         </a>
-        <a className="btn ghost" href="#" onClick={(e) => e.preventDefault()}>
-          <span className="b-ic">{Icons.bell()}</span>
-          <span className="b-tx"><small>Android</small><b>Notify me</b></span>
+        {/* TODO: replace href with the hosted APK download URL */}
+        <a className="btn ghost" href="/downloads/umc-android.apk" download>
+          <span className="b-ic">{Icons.download()}</span>
+          <span className="b-tx"><small>Android</small><b>Download APK</b></span>
         </a>
       </div>
-      <div className="meta">Requires iOS 16+ · Free during beta · No card required</div>
+      <div className="meta">Free during beta · No card required</div>
     </section>
   );
 }
@@ -103,8 +104,8 @@ const FAQS = [
   { q: "What is Unified Medical Care?", a: "It's a medication companion that reminds patients to take their tablets and keeps their caregivers, doctors, pharmacies and diagnostic centers connected around that single goal — never missing a dose." },
   { q: "How do caregivers get notified?", a: "When a patient confirms or misses a dose, anyone in their care circle is notified automatically. Patients choose who is in that circle, and can change it at any time." },
   { q: "Is my health data private?", a: "Yes. Data is encrypted in transit and at rest, sharing is consent-first, and every role only sees what it needs. You are always in control of your care circle." },
-  { q: "How do I join the beta?", a: "The app is currently in TestFlight beta for iOS 16 and above. Tap “Join the beta on TestFlight” above — it's free during the beta and no card is required. Android users can ask to be notified at launch." },
-  { q: "Which roles can use the app?", a: "Five: Patient, Caregiver, Doctor, Pharmacy and Diagnostic Center. Each gets a tailored experience scoped to what that role actually needs to do." },
+  { q: "How do I join the beta?", a: "The app is in open beta on both platforms. iOS users join via TestFlight (iOS 16+), and Android users can download the APK directly — both free during the beta, no card required. Tap the buttons above to get started." },
+  { q: "Is it really free?", a: "Yes — the app is free during the beta, with no card required. For doctors, the digital clinic setup stays free; UMC is funded through pharmacy and diagnostic transactions, not by charging you." },
 ];
 
 function FAQ() {

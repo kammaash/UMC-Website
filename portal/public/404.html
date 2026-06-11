@@ -1,0 +1,7 @@
+<!doctype html>
+<html><head>
+<script>
+  var l = window.location;
+  l.replace(l.protocol+'//'+l.host+'/member/?p='+encodeURIComponent(l.pathname.slice('/member'.length)+l.search)+'#'+l.hash.slice(1));
+</script>
+</head></html>

@@ -1,5 +1,5 @@
 export type AuthStatus = 'unknown' | 'signed-out' | 'signed-in'
-export interface UserProfile { role: string }
+export interface UserProfile { role: string; fullName?: string }
 export interface AccessInput {
   status: AuthStatus
   profile: UserProfile | null

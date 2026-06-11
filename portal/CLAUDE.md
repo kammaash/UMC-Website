@@ -37,8 +37,8 @@ npm run build    # tsc -b && vite build
 ```
 
 `.env` (gitignored) holds the 6 `VITE_FB_*` Firebase web-config values — see `.env.example`.
-These are web config, not secrets. Sign in with the doctor test account
-`iyYwg9woPdg6OiTTFBaROF6zrL13` to reach `/doctor`.
+These are web config, not secrets. Sign in with a doctor test account
+(role `doctor` in `users/{uid}`) to reach `/doctor`.
 
 ## Architecture & the one hard rule
 

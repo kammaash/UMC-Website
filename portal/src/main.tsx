@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './shared/design/tokens.css'
 import './shared/design/base.css'
+import './shared/design/neo.css'
 import { AuthProvider } from './shared/auth/AuthContext'
 import App from './app/App'
 

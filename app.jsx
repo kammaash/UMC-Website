@@ -78,12 +78,15 @@ function Loader({ onDone }) {
 }
 
 function App() {
-  const [revealed, setRevealed] = React.useState(false);
+  // Login → "Back to site" deep-links to "#pillars": skip the loader and start
+  // revealed so the intro jumps straight to the bloomed four-pillars state.
+  const deepPillars = typeof window !== "undefined" && window.location.hash === "#pillars";
+  const [revealed, setRevealed] = React.useState(deepPillars);
   return (
     <React.Fragment>
       <CursorLayer />
       <ScrollRail />
-      <Loader onDone={() => setRevealed(true)} />
+      {!deepPillars && <Loader onDone={() => setRevealed(true)} />}
       <div className="scroll-shell">
         <IntroStage holdMs={2000} diveMs={800} maxSpin={10} hubCrossScale={0.30} heroReady={revealed} />
         <Marquee />

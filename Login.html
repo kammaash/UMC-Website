@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Unified Medical Care</title>
+  <link rel="icon" type="image/png" href="assets/app_logo.png?v=40" />
+  <link rel="apple-touch-icon" href="assets/app_logo.png?v=40" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    :root {
+      --serif:    'DM Serif Display', Georgia, serif;
+      --sans:     'Inter', system-ui, sans-serif;
+      --mono:     'JetBrains Mono', ui-monospace, monospace;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --bg:       #0b0b0b;
+      --fg:       #f3f3f3;
+      --fg-soft:  rgba(243,243,243,0.45);
+      --fg-faint: rgba(243,243,243,0.18);
+      --surface:  #161618;
+      --surface-hi: #1d1d21;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--fg);
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+      padding: 40px 24px;
+    }
+
+    /* ── grain overlay ── */
+    body::after {
+      content: "";
+      position: fixed; inset: 0; z-index: 9000; pointer-events: none; opacity: 0.045;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+
+    /* ── back link ── */
+    .back {
+      position: fixed; top: clamp(20px,4vh,34px); left: clamp(20px,4vw,40px);
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+      text-transform: uppercase; color: var(--fg-soft); text-decoration: none;
+      display: flex; align-items: center; gap: 8px;
+      opacity: 0; animation: fadeUp 0.7s var(--ease-out) 0.4s forwards;
+      transition: color 0.25s ease;
+    }
+    .back:hover { color: var(--fg); }
+    .back-arr { font-size: 13px; display: inline-block; transition: transform 0.25s var(--ease-out); }
+    .back:hover .back-arr { transform: translateX(-3px); }
+    .back.clicked { outline: none; animation: ringPulse 0.55s var(--ease-out) forwards; }
+    @keyframes ringPulse {
+      0%   { box-shadow: 0 0 0 0px rgba(243,243,243,0.55); }
+      40%  { box-shadow: 0 0 0 6px rgba(243,243,243,0.18); }
+      100% { box-shadow: 0 0 0 10px rgba(243,243,243,0); }
+    }
+
+    /* ── panel ── */
+    .panel {
+      width: 100%; max-width: 400px;
+      display: flex; flex-direction: column; align-items: center;
+      opacity: 0; animation: fadeUp 0.85s var(--ease-out) 0.15s forwards;
+    }
+
+    /* logo mark */
+    .mark { width: 58px; height: 58px; margin-bottom: 32px; }
+    .mark img { width: 100%; height: 100%; object-fit: contain; filter: invert(1); opacity: 0.9; }
+
+    /* heading */
+    .hdg {
+      font-family: var(--serif); font-style: italic; font-weight: 400;
+      font-size: clamp(36px, 6vw, 52px); letter-spacing: -0.02em;
+      color: var(--fg); text-align: center; line-height: 1.1;
+      margin-bottom: 10px;
+    }
+    .sub {
+      font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+      letter-spacing: 0.26em; text-transform: uppercase;
+      color: var(--fg-soft); text-align: center; margin-bottom: 56px;
+    }
+
+    /* ── auth buttons ── */
+    .auth-btns { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+
+    .auth-btn {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid rgba(230,230,230,0.08);
+      border-radius: 18px;
+      cursor: pointer;
+      font-family: var(--sans); font-size: 15px; font-weight: 600;
+      color: var(--fg);
+      padding: 20px 26px;
+      display: flex; align-items: center; gap: 14px;
+      position: relative; overflow: hidden;
+      transition:
+        transform     0.38s var(--ease-out),
+        box-shadow    0.38s var(--ease-out),
+        border-color  0.28s ease,
+        background    0.32s ease,
+        color         0.28s ease;
+    }
+
+    /* trailing arrow */
+    .auth-btn-arr {
+      margin-left: auto;
+      font-size: 15px;
+      color: var(--fg-faint);
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: opacity 0.3s ease, transform 0.38s var(--ease-out), color 0.3s ease;
+    }
+    .auth-btn:hover .auth-btn-arr {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* base lift */
+    .auth-btn:hover {
+      transform: translateY(-4px);
+      background: var(--surface-hi);
+      border-color: rgba(230,230,230,0.14);
+    }
+    .auth-btn:active {
+      transform: translateY(1px) scale(0.997);
+      transition-duration: 0.1s;
+      box-shadow: none !important;
+    }
+
+    /* ── brand-specific glow on hover ── */
+    .auth-btn.google:hover {
+      border-color: rgba(66,133,244,0.45);
+      box-shadow:
+        0 24px 56px rgba(0,0,0,0.65),
+        0 0 0 1px rgba(66,133,244,0.18),
+        inset 0 1px 0 rgba(66,133,244,0.06);
+    }
+    .auth-btn.google:hover .auth-btn-arr { color: #4285F4; }
+
+    .auth-btn.phone:hover {
+      border-color: rgba(52,199,89,0.45);
+      box-shadow:
+        0 24px 56px rgba(0,0,0,0.65),
+        0 0 0 1px rgba(52,199,89,0.18),
+        inset 0 1px 0 rgba(52,199,89,0.06);
+    }
+    .auth-btn.phone:hover .auth-btn-arr { color: #34C759; }
+
+    .auth-btn.apple:hover {
+      border-color: rgba(255,255,255,0.22);
+      box-shadow:
+        0 24px 56px rgba(0,0,0,0.65),
+        0 0 0 1px rgba(255,255,255,0.10),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .auth-btn.apple:hover .auth-btn-arr { color: var(--fg-soft); }
+
+    /* icon shell */
+    .auth-icon {
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: color 0.28s ease;
+    }
+    .auth-icon svg { width: 100%; height: 100%; }
+
+    /* phone icon tint at rest */
+    .auth-btn.phone .auth-icon { color: rgba(52,199,89,0.85); }
+
+    /* label */
+    .auth-label { flex: 1; text-align: left; transition: color 0.28s ease; }
+
+    /* ── clicked states ── */
+    .auth-btn.clicked { pointer-events: none; }
+
+    /* Google → white */
+    .auth-btn.google.clicked {
+      background: #ffffff;
+      color: #1a1a1a;
+      border-color: rgba(0,0,0,0.09);
+      transform: scale(0.984);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.14);
+    }
+    .auth-btn.google.clicked .auth-btn-arr { color: rgba(26,26,26,0.4); opacity: 1; transform: translateX(0); }
+
+    /* Phone → green */
+    .auth-btn.phone.clicked {
+      background: #34C759;
+      color: #04280e;
+      border-color: rgba(0,0,0,0.1);
+      transform: scale(0.984);
+      box-shadow: 0 4px 28px rgba(52,199,89,0.45);
+    }
+    .auth-btn.phone.clicked .auth-icon { color: #04280e; }
+    .auth-btn.phone.clicked .auth-btn-arr { color: #04280e; opacity: 1; transform: translateX(0); }
+
+    /* Apple → pure black */
+    .auth-btn.apple.clicked {
+      background: #000000;
+      color: #f3f3f3;
+      border-color: rgba(255,255,255,0.2);
+      transform: scale(0.984);
+      box-shadow: 0 4px 28px rgba(0,0,0,0.7);
+    }
+    .auth-btn.apple.clicked .auth-btn-arr { color: rgba(243,243,243,0.45); opacity: 1; transform: translateX(0); }
+
+    /* ── ripple ── */
+    .auth-btn .ripple {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: scale(0);
+      opacity: 1;
+      animation: ripple-out 0.6s var(--ease-out) forwards;
+    }
+    @keyframes ripple-out {
+      to { transform: scale(1); opacity: 0; }
+    }
+
+    /* ── footer ── */
+    .foot {
+      margin-top: 52px;
+      font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--fg-faint); text-align: center; line-height: 2.2;
+    }
+    .foot a { color: var(--fg-soft); text-decoration: none; transition: color 0.2s ease; }
+    .foot a:hover { color: var(--fg); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .back, .panel { animation: none; opacity: 1; }
+    }
+
+    /* ── cursor morph ── */
+    * { cursor: none !important; }
+    .cursor-morph {
+      position: fixed; top: 0; left: 0;
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.75);
+      mix-blend-mode: difference;
+      pointer-events: none;
+      z-index: 99999;
+      border-radius: 999px;
+      will-change: transform, width, height, border-radius;
+      transition: background 0.22s ease, border-color 0.22s ease;
+    }
+    .cursor-morph.is-active { background: #fff; border-color: #fff; }
+    @media (pointer: coarse) { * { cursor: auto !important; } .cursor-morph { display: none; } }
+  </style>
+</head>
+<body>
+
+  <a class="back" href="/#pillars" id="back-link">
+    <span class="back-arr">←</span>
+    <span>Back to site</span>
+  </a>
+
+  <div class="panel">
+
+    <div class="mark">
+      <img src="assets/app_logo.png?v=40" alt="Unified Medical Care" />
+    </div>
+
+    <h1 class="hdg">Welcome.</h1>
+    <p class="sub">Unified Medical Care · Member Portal</p>
+
+    <div class="auth-btns">
+
+      <!-- Google -->
+      <button type="button" class="auth-btn google" onclick="handleAuth('google', this)">
+        <span class="auth-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+        </span>
+        <span class="auth-label">Continue with Google</span>
+        <span class="auth-btn-arr" aria-hidden="true">→</span>
+      </button>
+
+      <!-- Phone -->
+      <button type="button" class="auth-btn phone" onclick="handleAuth('phone', this)">
+        <span class="auth-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5.5" y="1.5" width="13" height="21" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M10 5.5h4" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="12" cy="18.5" r="1" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="auth-label">Continue with Phone</span>
+        <span class="auth-btn-arr" aria-hidden="true">→</span>
+      </button>
+
+      <!-- Apple -->
+      <button type="button" class="auth-btn apple" onclick="handleAuth('apple', this)">
+        <span class="auth-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83zM13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+          </svg>
+        </span>
+        <span class="auth-label">Continue with Apple</span>
+        <span class="auth-btn-arr" aria-hidden="true">→</span>
+      </button>
+
+    </div>
+
+    <p class="foot">
+      New to UMC? <a href="/#download">Join the beta</a><br>
+      By signing in you agree to our <span style="white-space: nowrap"><a href="#">Terms</a> &amp; <a href="#">Privacy Policy</a></span>
+    </p>
+
+  </div>
+
+  <div class="cursor-morph" id="cursor-morph" aria-hidden="true"></div>
+
+  <script>
+    // ── cursor morph (tick-based hit detection — no mouseenter/leave oscillation) ──
+    (function () {
+      const el = document.getElementById('cursor-morph');
+      if (!el || !window.matchMedia('(pointer: fine)').matches) { el && el.remove(); return; }
+
+      let mx = -300, my = -300;
+      let cx = -300, cy = -300;
+      let cw = 18, ch = 18, cr = 999;
+      const lerp = (a, b, t) => a + (b - a) * t;
+
+      document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+      document.addEventListener('mouseleave', () => { mx = -300; my = -300; });
+
+      // Flat node list built once — checked every frame, no DOM events
+      const nodes = [
+        ...[...document.querySelectorAll('.back')].map(n =>     ({ n, pad: 14, r: 999, invert: true  })),
+        ...[...document.querySelectorAll('.auth-btn')].map(n => ({ n, pad: 0, r: 18,  invert: false })),
+        ...[...document.querySelectorAll('.foot a')].map(n =>   ({ n, pad: 6,  r: 999, invert: false })),
+      ];
+
+      let prevHit = null;
+
+      (function tick() {
+        // Hittest in animation loop — immune to hover-lift transform shifts
+        let hit = null;
+        for (const item of nodes) {
+          const { left, top, right, bottom } = item.n.getBoundingClientRect();
+          if (mx >= left - item.pad && mx <= right  + item.pad &&
+              my >= top  - item.pad && my <= bottom + item.pad) {
+            hit = item; break;
+          }
+        }
+        if (hit !== prevHit) {
+          el.classList.toggle('is-active', !!(hit && hit.invert));
+          prevHit = hit;
+        }
+
+        let tx, ty, ttw, tth, ttr;
+        if (hit) {
+          const { left, top, width, height } = hit.n.getBoundingClientRect();
+          tx = left + width / 2;  ty = top + height / 2;
+          ttw = width + hit.pad * 2;  tth = height + hit.pad * 2;
+          ttr = hit.r;
+        } else {
+          tx = mx; ty = my; ttw = 18; tth = 18; ttr = 999;
+        }
+
+        const ps = hit ? 0.12 : 0.20;
+        cx = lerp(cx, tx, ps); cy = lerp(cy, ty, ps);
+        cw = lerp(cw, ttw, 0.14); ch = lerp(ch, tth, 0.14); cr = lerp(cr, ttr, 0.14);
+        const br = Math.min(cr, Math.min(cw, ch) / 2);
+        el.style.cssText = `width:${cw}px;height:${ch}px;border-radius:${br}px;transform:translate(${cx - cw/2}px,${cy - ch/2}px)`;
+        requestAnimationFrame(tick);
+      })();
+    })();
+
+    // ── back link click animation ──
+    document.getElementById('back-link').addEventListener('click', function() {
+      this.classList.add('clicked');
+      this.addEventListener('animationend', () => this.classList.remove('clicked'), { once: true });
+    });
+
+    // ── ripple on click ──
+    document.querySelectorAll('.auth-btn').forEach(btn => {
+      btn.addEventListener('pointerdown', function (e) {
+        const rect = this.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height) * 2;
+        const x = e.clientX - rect.left - size / 2;
+        const y = e.clientY - rect.top  - size / 2;
+        const r = document.createElement('span');
+        r.className = 'ripple';
+        r.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px;background:rgba(255,255,255,0.07)`;
+        this.appendChild(r);
+        r.addEventListener('animationend', () => r.remove());
+      });
+    });
+
+    // ── auth handler ──
+    // NOTE: stubs auth with localStorage. Production task: replace with Firebase
+    // Auth (signInWithPopup / signInWithPhoneNumber) — see member portal config.
+    function handleAuth(provider, btn) {
+      if (btn.disabled) return;
+      btn.classList.add('clicked');
+      btn.disabled = true;
+      const label = btn.querySelector('.auth-label');
+      setTimeout(() => { label.textContent = 'Redirecting…'; }, 380);
+      localStorage.setItem('umc_role', 'patient');
+      setTimeout(() => { window.location.href = '/member/'; }, 1100);
+    }
+  </script>
+</body>
+</html>

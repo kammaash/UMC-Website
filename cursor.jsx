@@ -5,13 +5,14 @@
   const lerp = (a, b, t) => a + (b - a) * t;
 
   // Elements the ring morphs to wrap
-  const BTN_SEL = ".btn, .prong, .role-card, .rn-tab, .rn-cta, .rn-back, .faq-item";
+  const BTN_SEL = ".btn, .prong, .role-card, .rn-tab, .rn-cta, .rn-back, .faq-item, .portal-entry, .sh-login";
 
   // All interactive elements (for hoverEl tracking)
   const INTERACTIVE = [
     "a", "button", "[role='button']",
     ".prong", ".role-card", ".faq-q", ".join-cta",
     ".btn", ".rn-tab", ".rn-back", ".rn-cta",
+    ".portal-entry", ".sh-login",
     "input", "select",
   ].join(",");
 
@@ -67,6 +68,8 @@
         let wrapEl = btn, role = false, isRail = false;
         // Role pillars → wrap the visible cap circle, not the full prong hit area
         if (btn && btn.matches && btn.matches(".prong")) wrapEl = btn.querySelector(".cap") || btn;
+        // Hero login → wrap the inner text span so the ring centres on the text
+        if (btn && btn.matches && btn.matches(".portal-entry")) wrapEl = btn.querySelector(".pe-go") || btn;
         if (btn) role = btn.matches && btn.matches(".prong, .role-card");
         else if (railThumb) { wrapEl = railThumb; isRail = true; }
 
@@ -93,7 +96,13 @@
           const darkBg = (loaderEl && !loaderEl.classList.contains("done"))
             || (introEl && !introEl.classList.contains("lit"))
             || !!document.querySelector('.dive[data-show="true"]');
-          el.style.borderColor = darkBg ? "#f3f3f3" : "#0b0b0b";
+          // Over a login link → fill solid white + difference-blend to invert the
+          // text underneath. mix-blend-mode: difference only inverts against WHITE,
+          // so the fill must be #fff regardless of the page background.
+          const fillEl = wrapEl && wrapEl.closest && wrapEl.closest('.portal-entry, .sh-login');
+          el.style.borderColor = fillEl ? "#fff" : (darkBg ? "#f3f3f3" : "#0b0b0b");
+          el.style.background = fillEl ? "#fff" : "transparent";
+          el.style.mixBlendMode = fillEl ? "difference" : "normal";
           el.style.transform = `translate(${me.rx}px,${me.ry}px) translate(-50%,-50%)`;
           el.style.width = me.rw + "px"; el.style.height = me.rh + "px"; el.style.borderRadius = me.rr + "px";
           el.style.opacity = st.visible ? 1 : 0;

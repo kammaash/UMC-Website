@@ -78,11 +78,13 @@ server. Depending on how far you take "the backend":
 
 1. `docs/superpowers/specs/2026-06-11-doctor-web-portal-design.md` — the full design spec.
 2. `docs/superpowers/plans/2026-06-11-doctor-portal-phase1-foundation.md` — Phase 1 (DONE).
-3. **Plan 2 — Data Layer** (next; ask Claude Code to write it from the spec if not present):
-   typed models + hooks in `src/roles/doctor/data/` over Firestore + the existing Cloud
-   Functions. This is the bulk of the "backend wiring."
-4. Then Plan 3 — wire each page (Schedule, Patients, Notes, Finance, Settings) + create flows,
-   then design elevation.
+3. `docs/superpowers/plans/2026-06-11-doctor-portal-phase2-data-layer.md` — **Plan 2 (NEXT,
+   ready to execute)**: typed models, pure mappers (TDD), live read hooks, and the appointment /
+   settings / notes actions in `src/roles/doctor/data/`, with exact field maps + Cloud Function
+   names mirrored from the phone app. This is the bulk of the "backend wiring."
+4. Then Phase 3 — wire each page (Schedule, Patients, Notes, Finance, Settings, Home) to the
+   hooks/actions with plain styling; Phase 3a adds the create flows (create patient, prescribe
+   medication, order diagnostics); then design elevation.
 
 Tip: this project was built with Claude Code using the brainstorm → spec → plan → execute
 workflow. You can keep using it: point Claude at the spec + plans and have it write/execute the
@@ -90,11 +92,17 @@ next plan.
 
 ## Gotchas already discovered (save yourself the debugging)
 
-- **Cloud Functions region is MIXED.** Most functions default to `us-central1`; **9 are in
-  `asia-south1`**. The Flutter app calls some via the default instance and some via
-  `instanceFor(region: 'asia-south1')`. When wiring callables in the portal, mirror each
-  function's exact region (set up both `getFunctions(app)` and `getFunctions(app, 'asia-south1')`
-  and map each callable to the right one) — wrong region fails silently.
+- **Cloud Functions region (resolved):** every Cloud Function the **doctor** flow calls
+  (`processCancellation`, `dismissAppointmentByDoctor`, `settleDoctorPenaltyManually`,
+  `createPaymentOrder`, `verifyAndEscrowPayment`, …) is in the default **`us-central1`** — so the
+  portal just uses `getFunctions(app)` with no region override. (The `asia-south1` functions are
+  AI/assistant, the Razorpay webhook, and schedulers — not called by the doctor data layer. If
+  you later add the AI assistant, those need `getFunctions(app, 'asia-south1')`.)
+- **Many doctor actions are direct Firestore writes, not Cloud Functions.** Confirm, mark-arrived,
+  and mark-done are `appointments/{id}` updates; only cancel/reject/no-show
+  (`processCancellation`), dismiss, and penalty-settle are callables. Phase 2's
+  `appointmentActions.ts` reproduces each write map exactly — including the slot-lock removal and
+  patient–doctor guard release that the app performs around cancellations.
 - **Finance is read-only in the UI.** Cloud Functions write the authoritative finance/order
   docs; the portal only reads and renders them. Never recompute money client-side.
 - **Vitest 4** exits code 1 on "No test files found" — harmless, only matters before any test

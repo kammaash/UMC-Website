@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (function(){
+        var p = new URLSearchParams(window.location.search).get('p');
+        if(p){ window.history.replaceState(null,null,'/member'+decodeURIComponent(p)); }
+      })();
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

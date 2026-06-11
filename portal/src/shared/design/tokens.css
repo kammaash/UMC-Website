@@ -1,0 +1,21 @@
+:root {
+  --serif: 'DM Serif Display', 'DM Serif Text', Georgia, serif;
+  --sans:  'Inter', system-ui, -apple-system, sans-serif;
+  --mono:  'JetBrains Mono', 'SFMono-Regular', ui-monospace, monospace;
+
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-inout: cubic-bezier(0.83, 0, 0.17, 1);
+
+  --bg:        #e3e3e3;
+  --bg-2:      #ededed;
+  --bg-sunken: #d6d6d6;
+  --ink:       #1c1c1c;
+  --ink-soft:  #565656;
+  --ink-faint: #8c8c8c;
+  --line:      rgba(20,20,20,0.14);
+  --line-2:    rgba(20,20,20,0.06);
+  --shadow-dark:  rgba(150,150,150,0.55);
+  --shadow-light: rgba(255,255,255,0.9);
+
+  --neo-rest: 8px 12px 30px var(--shadow-dark), -5px -5px 16px var(--shadow-light);
+}

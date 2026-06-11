@@ -1063,8 +1063,11 @@ html.cur-on .intro, html.cur-on .intro *,
 html.cur-on .role-nav-wrap, html.cur-on .role-nav-wrap *,
 html.cur-on .scroll-rail, html.cur-on .scroll-rail * { cursor: none !important; }
 
-.cur { position: fixed; inset: 0; pointer-events: none; z-index: 9998; }
-.cur > * { position: fixed; top: 0; left: 0; }
+/* display: contents (NOT a positioned/z-indexed wrapper) so the fixed ring
+   blends directly against page content — a positioned wrapper would create an
+   isolated stacking context that stops the difference-blend reaching the page. */
+.cur { display: contents; }
+.cur > * { position: fixed; top: 0; left: 0; z-index: 9998; pointer-events: none; }
 
 /* Inversion ring — color and size set per-frame via JS */
 .halo-ring {
@@ -1073,6 +1076,58 @@ html.cur-on .scroll-rail, html.cur-on .scroll-rail * { cursor: none !important; 
   border-radius: 50%;
   mix-blend-mode: normal;
   opacity: 0;
+}
+
+/* ============================================================
+   LOGIN ENTRY POINTS — hero + pillars "Login" links
+   Plain text at rest; the inverting cursor provides the border/fill.
+   ============================================================ */
+/* returning-user portal entry (top-right of the dark hero) */
+.hero-layer .portal-entry {
+  position: absolute; top: clamp(20px, 4.2vh, 38px); right: clamp(20px, 4vw, 44px);
+  z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
+  font-family: var(--mono); text-decoration: none; line-height: 1;
+  opacity: 0; transform: translateY(-8px);
+}
+.intro.in .hero-layer .portal-entry { animation: peIn 0.9s var(--ease-out) 1.45s forwards; }
+@keyframes peIn { to { opacity: 1; transform: translateY(0); } }
+.hero-layer .portal-entry .pe-go {
+  display: inline-flex; align-items: center; gap: 0.5em; white-space: nowrap;
+  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--fg);
+  transition: color 0.28s ease, gap 0.3s var(--ease-out);
+}
+.hero-layer .portal-entry .pe-arr { font-size: 13px; transition: transform 0.3s var(--ease-out); }
+.hero-layer .portal-entry:hover .pe-go { gap: 0.72em; }
+.hero-layer .portal-entry:hover .pe-arr { transform: translate(2px, -2px); }
+.hero-layer .portal-entry.clicked { animation: peIn 0s forwards, peRing 0.55s var(--ease-out) forwards; }
+@keyframes peRing {
+  0%   { box-shadow: 0 0 0 0px rgba(243,243,243,0.6); border-radius: 999px; }
+  40%  { box-shadow: 0 0 0 7px rgba(243,243,243,0.18); border-radius: 999px; }
+  100% { box-shadow: 0 0 0 12px rgba(243,243,243,0); border-radius: 999px; }
+}
+@media (max-width: 520px) {
+  .hero-layer .portal-entry { top: 14px; right: 16px; }
+}
+
+/* pillars login shortcut (top-right of the light four-pillars screen) */
+.sh-login {
+  position: absolute; top: clamp(20px, 4.2vh, 38px); right: clamp(20px, 4vw, 44px);
+  z-index: 30; pointer-events: auto; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 0.5em;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-soft);
+  opacity: 0; transition: color 0.25s ease, gap 0.28s var(--ease-out), opacity 0.5s ease;
+}
+.sh-login[data-show="true"] { opacity: 1; }
+.sh-login:hover { color: var(--ink); gap: 0.72em; }
+.sh-login .sh-arr { font-size: 13px; transition: transform 0.28s var(--ease-out); }
+.sh-login:hover .sh-arr { transform: translate(2px, -2px); }
+.sh-login.clicked { animation: shRing 0.55s var(--ease-out) forwards; }
+@keyframes shRing {
+  0%   { box-shadow: 0 0 0 0px rgba(20,20,20,0.42); }
+  40%  { box-shadow: 0 0 0 7px rgba(20,20,20,0.11); }
+  100% { box-shadow: 0 0 0 12px rgba(20,20,20,0); }
 }
 
 /* ============================================================

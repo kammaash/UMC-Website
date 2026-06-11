@@ -213,13 +213,16 @@ function RoleNav({ roles, active, onSelect, onBack, onCTA, visible }) {
 }
 
 function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
-  const [phase, setPhase] = useState("hero");   // hero | holding | boom | bloomed | dive
-  const [introP, setIntroP] = useState(0);       // 0..1 opening progress (auto-tweened)
+  // Login → "Back to site" deep-links to "#pillars": jump straight to the
+  // bloomed four-pillars state (skip the loader + hold-to-bloom intro).
+  const deepPillars = typeof window !== "undefined" && window.location.hash === "#pillars";
+  const [phase, setPhase] = useState(deepPillars ? "bloomed" : "hero");   // hero | holding | boom | bloomed | dive
+  const [introP, setIntroP] = useState(deepPillars ? 1 : 0);     // 0..1 opening progress (auto-tweened)
   const [holdP, setHoldP] = useState(0);         // 0..1 press-and-hold progress
   const [spin, setSpin] = useState(0);           // live cross/streak rotation (deg)
   const [active, setActive] = useState(null);    // role index when dived
   const [hoverSide, setHoverSide] = useState(null);
-  const [lit, setLit] = useState(false);
+  const [lit, setLit] = useState(deepPillars ? true : false);
   const [closing, setClosing] = useState(false); // dive-out in progress
   const [focused, setFocused] = useState(false); // rack-focus blur on opened role
   const [cardIdx, setCardIdx] = useState(0);     // active card in the mobile swipe carousel
@@ -360,6 +363,14 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
     const t = setTimeout(positionLabels, 1500);
     return () => clearTimeout(t);
   }, [phase]);
+
+  // Deep-link (Login → "#pillars"): the normal bloom sequence that computes the
+  // cross + label offsets is skipped, so settle them into the hub on direct load.
+  useEffect(() => {
+    if (!deepPillars) return;
+    const timers = [80, 350, 700].map((ms) => setTimeout(() => { repositionCross(); positionLabels(); }, ms));
+    return () => timers.forEach(clearTimeout);
+  }, []);
 
   const ready = introP >= 0.999 && phase === "hero";
 
@@ -792,6 +803,15 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
 
       {/* hero layer — auto blur morphs the words into the black */}
       <div className="hero-layer" style={{ filter: `blur(${blur}px)`, opacity: heroOpacity }}>
+        {/* returning-user shortcut — quiet top-right entry into the member portal */}
+        <a className="portal-entry" href="Login.html" aria-label="Sign in to the member portal"
+          onClick={e => {
+            const el = e.currentTarget;
+            el.classList.add('clicked');
+            el.addEventListener('animationend', () => el.classList.remove('clicked'), { once: true });
+          }}>
+          <span className="pe-go">Login<span className="pe-arr" aria-hidden="true">↗</span></span>
+        </a>
         <WordCycler ready={heroReady} paused={introP > 0.02} />
         <div className="scroll-cue"><span>Scroll to begin</span><span className="line" /></div>
       </div>
@@ -873,6 +893,16 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
         <h2>The four pillars of modern healthcare</h2>
         <div className="hint">Select a pillar to dive in →</div>
       </div>
+
+      {/* top-right login shortcut — visible when the pillars are bloomed */}
+      <a className="sh-login" href="Login.html" data-show={headShown} aria-label="Sign in to the member portal"
+        onClick={e => {
+          const el = e.currentTarget;
+          el.classList.add('clicked');
+          el.addEventListener('animationend', () => el.classList.remove('clicked'), { once: true });
+        }}>
+        Login<span className="sh-arr" aria-hidden="true">↗</span>
+      </a>
 
       {/* camera DIVE overlay — circular iris from the clicked circle + rack focus */}
       <div ref={diveRef} className={"dive" + (focused ? " focused" : "") + (closing ? " closing" : "")} data-show={phase === "dive"}>

@@ -78,15 +78,15 @@ function Loader({ onDone }) {
 }
 
 function App() {
-  // Login → "Back to site" deep-links to "#pillars": skip the loader and start
-  // revealed so the intro jumps straight to the bloomed four-pillars state.
-  const deepPillars = typeof window !== "undefined" && window.location.hash === "#pillars";
-  const [revealed, setRevealed] = React.useState(deepPillars);
+  // Deep-links ("#pillars", "#download") skip the loader and start revealed so
+  // the intro jumps straight to the bloomed state (pillars / download section).
+  const deepLink = typeof window !== "undefined" && ["#pillars", "#download"].includes(window.location.hash);
+  const [revealed, setRevealed] = React.useState(deepLink);
   return (
     <React.Fragment>
       <CursorLayer />
       <ScrollRail />
-      {!deepPillars && <Loader onDone={() => setRevealed(true)} />}
+      {!deepLink && <Loader onDone={() => setRevealed(true)} />}
       <div className="scroll-shell">
         <IntroStage holdMs={2000} diveMs={800} maxSpin={10} hubCrossScale={0.30} heroReady={revealed} />
         <Marquee />

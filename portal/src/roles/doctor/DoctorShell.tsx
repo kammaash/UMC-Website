@@ -3,12 +3,12 @@ import { useAuth } from '../../shared/auth/AuthContext'
 import { Icon } from '../../shared/design/icons'
 
 const NAV = [
-  { to: '/doctor', label: 'Home', icon: 'eventAvailable', end: true },
-  { to: '/doctor/schedule', label: 'Schedule', icon: 'calendar' },
-  { to: '/doctor/patients', label: 'Patients', icon: 'people' },
-  { to: '/doctor/notes', label: 'Notes', icon: 'description' },
-  { to: '/doctor/finance', label: 'Finance', icon: 'payments' },
-  { to: '/doctor/settings', label: 'Settings', icon: 'settings' },
+  { to: '/dashboard', label: 'Home', icon: 'eventAvailable', end: true },
+  { to: '/dashboard/schedule', label: 'Schedule', icon: 'calendar' },
+  { to: '/dashboard/patients', label: 'Patients', icon: 'people' },
+  { to: '/dashboard/notes', label: 'Notes', icon: 'description' },
+  { to: '/dashboard/finance', label: 'Finance', icon: 'payments' },
+  { to: '/dashboard/settings', label: 'Settings', icon: 'settings' },
 ]
 
 export function DoctorShell() {

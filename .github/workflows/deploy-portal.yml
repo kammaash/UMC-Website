@@ -39,10 +39,16 @@ jobs:
           rm -rf member
           cp -r portal/dist/. member
 
-      - name: Commit member/ to main
+      - name: Publish /login entry (reuses the portal bundle)
+        run: |
+          rm -rf login
+          mkdir -p login
+          cp member/index.html login/index.html
+
+      - name: Commit member/ + login/ to main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add member/
-          git diff --staged --quiet || git commit -m "chore: deploy portal to /member [skip ci]"
+          git add member/ login/
+          git diff --staged --quiet || git commit -m "chore: deploy portal to /member + /login [skip ci]"
           git push

@@ -1130,6 +1130,12 @@ html.cur-on .scroll-rail, html.cur-on .scroll-rail * { cursor: none !important; 
   100% { box-shadow: 0 0 0 12px rgba(20,20,20,0); }
 }
 
+/* The member portal is desktop-only — hide the login shortcuts on phones.
+   (A phone visitor to /login is redirected to the app download section.) */
+@media (max-width: 680px) {
+  .hero-layer .portal-entry, .sh-login { display: none !important; }
+}
+
 /* ============================================================
    CUSTOM SCROLL RAIL
    ============================================================ */

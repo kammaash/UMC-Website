@@ -434,8 +434,10 @@ export function LoginPage() {
     // A wrong-role account that bounced back here is still signed in — sign it
     // out so the visitor stays on /login (with the banner) and can retry.
     if (wrongRole) { logout(); return }
-    // Otherwise a successful sign-in heads to the member dashboard.
-    window.location.assign('/member/dashboard')
+    // Otherwise a successful sign-in heads to the member dashboard. Navigate to
+    // the real /member/ index (RoleLanding then routes to /dashboard) so the
+    // common path never depends on the 404 SPA fallback.
+    window.location.assign('/member/')
   }, [status, wrongRole, logout])
 
   // cursor morph loop

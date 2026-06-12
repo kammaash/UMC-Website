@@ -213,16 +213,20 @@ function RoleNav({ roles, active, onSelect, onBack, onCTA, visible }) {
 }
 
 function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
-  // Login → "Back to site" deep-links to "#pillars": jump straight to the
-  // bloomed four-pillars state (skip the loader + hold-to-bloom intro).
-  const deepPillars = typeof window !== "undefined" && window.location.hash === "#pillars";
-  const [phase, setPhase] = useState(deepPillars ? "bloomed" : "hero");   // hero | holding | boom | bloomed | dive
-  const [introP, setIntroP] = useState(deepPillars ? 1 : 0);     // 0..1 opening progress (auto-tweened)
+  // Deep-links skip the loader + hold-to-bloom intro and jump straight to the
+  // bloomed (light) state: "#pillars" lands on the four pillars; "#download"
+  // additionally scrolls down to the app download section.
+  const deepHash = typeof window !== "undefined" ? window.location.hash : "";
+  const deepPillars = deepHash === "#pillars";
+  const deepDownload = deepHash === "#download";
+  const deepBloom = deepPillars || deepDownload;
+  const [phase, setPhase] = useState(deepBloom ? "bloomed" : "hero");   // hero | holding | boom | bloomed | dive
+  const [introP, setIntroP] = useState(deepBloom ? 1 : 0);     // 0..1 opening progress (auto-tweened)
   const [holdP, setHoldP] = useState(0);         // 0..1 press-and-hold progress
   const [spin, setSpin] = useState(0);           // live cross/streak rotation (deg)
   const [active, setActive] = useState(null);    // role index when dived
   const [hoverSide, setHoverSide] = useState(null);
-  const [lit, setLit] = useState(deepPillars ? true : false);
+  const [lit, setLit] = useState(deepBloom ? true : false);
   const [closing, setClosing] = useState(false); // dive-out in progress
   const [focused, setFocused] = useState(false); // rack-focus blur on opened role
   const [cardIdx, setCardIdx] = useState(0);     // active card in the mobile swipe carousel
@@ -364,11 +368,25 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
     return () => clearTimeout(t);
   }, [phase]);
 
-  // Deep-link (Login → "#pillars"): the normal bloom sequence that computes the
-  // cross + label offsets is skipped, so settle them into the hub on direct load.
+  // Deep-link bloom: the normal bloom sequence that computes the cross + label
+  // offsets is skipped, so settle them into the hub on direct load.
   useEffect(() => {
-    if (!deepPillars) return;
+    if (!deepBloom) return;
     const timers = [80, 350, 700].map((ms) => setTimeout(() => { repositionCross(); positionLabels(); }, ms));
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  // "#download" deep-link (Login → "Join the beta", phone redirect): once the
+  // shell is unlocked by the bloom, scroll straight to the download section.
+  useEffect(() => {
+    if (!deepDownload) return;
+    const timers = [120, 400].map((ms) => setTimeout(() => {
+      const shell = document.querySelector(".scroll-shell");
+      const dl = document.getElementById("download");
+      if (!shell || !dl) return;
+      const top = dl.getBoundingClientRect().top - shell.getBoundingClientRect().top + shell.scrollTop;
+      shell.scrollTo({ top, behavior: "auto" });
+    }, ms));
     return () => timers.forEach(clearTimeout);
   }, []);
 
@@ -804,7 +822,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
       {/* hero layer — auto blur morphs the words into the black */}
       <div className="hero-layer" style={{ filter: `blur(${blur}px)`, opacity: heroOpacity }}>
         {/* returning-user shortcut — quiet top-right entry into the member portal */}
-        <a className="portal-entry" href="/member/" aria-label="Sign in to the member portal"
+        <a className="portal-entry" href="/login" aria-label="Sign in to the member portal"
           onClick={e => {
             const el = e.currentTarget;
             el.classList.add('clicked');
@@ -895,7 +913,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
       </div>
 
       {/* top-right login shortcut — visible when the pillars are bloomed */}
-      <a className="sh-login" href="/member/" data-show={headShown} aria-label="Sign in to the member portal"
+      <a className="sh-login" href="/login" data-show={headShown} aria-label="Sign in to the member portal"
         onClick={e => {
           const el = e.currentTarget;
           el.classList.add('clicked');

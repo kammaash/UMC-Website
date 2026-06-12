@@ -1,15 +1,15 @@
 import { useEffect, useRef, useCallback, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { RecaptchaVerifier } from 'firebase/auth'
 import { auth } from '../shared/lib/firebase'
 import { useAuth } from '../shared/auth/AuthContext'
 
 /* ─── inline styles ─────────────────────────────────────────────────────── */
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Serif+Text:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
   .umc-login-root {
-    --serif:      'DM Serif Display', Georgia, serif;
+    --serif:      'DM Serif Text', 'DM Serif Display', Georgia, serif;
     --sans:       'Inter', system-ui, sans-serif;
     --mono:       'JetBrains Mono', ui-monospace, monospace;
     --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
@@ -75,7 +75,7 @@ const css = `
 
   /* heading */
   .umc-login-hdg {
-    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-family: var(--serif); font-style: normal; font-weight: 400;
     font-size: clamp(36px, 6vw, 52px); letter-spacing: -0.02em;
     color: var(--fg); text-align: center; line-height: 1.1;
     margin: 0 0 10px;
@@ -239,8 +239,8 @@ const css = `
     display: flex; flex-direction: column; gap: 20px;
   }
   .umc-otp-title {
-    font-family: var(--serif); font-style: italic; font-size: 28px;
-    font-weight: 400; color: var(--fg); letter-spacing: -0.02em; margin: 0;
+    font-family: var(--serif); font-style: normal; font-size: 28px;
+    font-weight: 400; color: #fff; letter-spacing: -0.02em; margin: 0;
   }
   .umc-otp-desc {
     font-family: var(--mono); font-size: 10px; font-weight: 600;
@@ -251,12 +251,33 @@ const css = `
     background: #0b0b0b; border: 1px solid rgba(230,230,230,0.12);
     border-radius: 12px; padding: 16px 18px;
     font-family: var(--mono); font-size: 15px; font-weight: 600;
-    color: var(--fg); letter-spacing: 0.06em; width: 100%;
+    color: #fff; letter-spacing: 0.06em; width: 100%;
     transition: border-color 0.25s ease;
     outline: none;
   }
   .umc-otp-input:focus { border-color: rgba(52,199,89,0.5); }
   .umc-otp-input::placeholder { color: var(--fg-faint); }
+
+  /* phone field with fixed +91 prefix */
+  .umc-otp-field {
+    display: flex; align-items: stretch;
+    background: #0b0b0b; border: 1px solid rgba(230,230,230,0.12);
+    border-radius: 12px; overflow: hidden;
+    transition: border-color 0.25s ease;
+  }
+  .umc-otp-field:focus-within { border-color: rgba(52,199,89,0.5); }
+  .umc-otp-prefix {
+    display: flex; align-items: center; padding: 0 14px;
+    font-family: var(--mono); font-size: 15px; font-weight: 600;
+    color: var(--fg-soft); background: rgba(255,255,255,0.03);
+    border-right: 1px solid rgba(230,230,230,0.12);
+    user-select: none; pointer-events: none;
+  }
+  .umc-otp-input-bare {
+    background: transparent !important; border: none !important;
+    border-radius: 0; flex: 1; min-width: 0;
+  }
+
   .umc-otp-row { display: flex; gap: 10px; }
   .umc-otp-btn {
     flex: 1; padding: 16px; border-radius: 12px; border: none;
@@ -264,10 +285,18 @@ const css = `
     cursor: pointer; transition: opacity 0.2s ease, transform 0.2s ease;
   }
   .umc-otp-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .umc-otp-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+  .umc-otp-btn:disabled:hover { opacity: 0.38; transform: none; }
   .umc-otp-submit { background: #34C759; color: #04280e; }
   .umc-otp-cancel {
     background: transparent; color: var(--fg-soft);
     border: 1px solid rgba(230,230,230,0.1) !important;
+    transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  }
+  .umc-otp-cancel:hover {
+    opacity: 1; color: #fff;
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(230,230,230,0.24) !important;
   }
   #umc-recaptcha { display: none; }
 
@@ -306,41 +335,50 @@ interface OtpModalProps {
 }
 
 function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const isPhone = step === 'phone'
+  const [val, setVal] = useState('')
+  const ready = isPhone ? val.length === 10 : val.length === 6
+
+  const submit = () => {
+    if (!ready) return
+    if (isPhone) onSendOtp('+91' + val); else onConfirm(val)
+  }
+
   return (
     <div className="umc-otp-overlay" onClick={(e) => e.target === e.currentTarget && onCancel()}>
       <div className="umc-otp-card">
-        <h2 className="umc-otp-title">{step === 'phone' ? 'Your number.' : 'Check your phone.'}</h2>
+        <h2 className="umc-otp-title">{isPhone ? 'Your number' : 'Check your phone'}</h2>
         <p className="umc-otp-desc">
-          {step === 'phone' ? 'Enter your mobile number' : 'Enter the 6-digit code'}
+          {isPhone ? 'Enter your Indian mobile number' : 'Enter the 6-digit code'}
         </p>
-        <input
-          ref={inputRef}
-          className="umc-otp-input"
-          type={step === 'phone' ? 'tel' : 'text'}
-          inputMode={step === 'phone' ? 'tel' : 'numeric'}
-          placeholder={step === 'phone' ? '+1 234 567 8900' : '000000'}
-          maxLength={step === 'phone' ? 16 : 6}
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              const val = inputRef.current?.value ?? ''
-              if (!val) return
-              step === 'phone' ? onSendOtp(val) : onConfirm(val)
-            }
-          }}
-        />
+
+        {isPhone ? (
+          <div className="umc-otp-field">
+            <span className="umc-otp-prefix">+91</span>
+            <input
+              className="umc-otp-input umc-otp-input-bare"
+              type="tel" inputMode="numeric"
+              maxLength={10} autoFocus
+              value={val}
+              onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+            />
+          </div>
+        ) : (
+          <input
+            className="umc-otp-input"
+            type="text" inputMode="numeric"
+            placeholder="000000" maxLength={6} autoFocus
+            value={val}
+            onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+          />
+        )}
+
         <div className="umc-otp-row">
           <button className="umc-otp-btn umc-otp-cancel" onClick={onCancel}>Cancel</button>
-          <button
-            className="umc-otp-btn umc-otp-submit"
-            onClick={() => {
-              const val = inputRef.current?.value ?? ''
-              if (!val) return
-              step === 'phone' ? onSendOtp(val) : onConfirm(val)
-            }}
-          >
-            {step === 'phone' ? 'Send code →' : 'Verify →'}
+          <button className="umc-otp-btn umc-otp-submit" disabled={!ready} onClick={submit}>
+            {isPhone ? 'Send code →' : 'Verify →'}
           </button>
         </div>
       </div>
@@ -352,15 +390,19 @@ function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps) {
 /* ─── main page ──────────────────────────────────────────────────────────── */
 export function LoginPage() {
   const { status, signInWithGoogle, signInWithApple, signInWithPhone, logout } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
 
-  // Wrong-role / no-portal accounts are bounced back here with an inline error
-  // instead of a separate page.
-  const wrongRole = (location.state as { error?: string } | null)?.error === 'wrong-role'
+  // Wrong-role / no-portal accounts are bounced back here (?e=wrong-role) with
+  // an inline error instead of a separate page.
+  const wrongRole = new URLSearchParams(location.search).get('e') === 'wrong-role'
   const [authError, setAuthError] = useState<string | null>(
     wrongRole ? "This account isn't set up for a web portal. Sign in with a doctor account." : null
   )
+
+  // The portal is desktop-only — phone visitors are sent to the app download
+  // section on the marketing site instead of the sign-in screen.
+  const isPhone = typeof window !== 'undefined' && window.matchMedia('(max-width: 680px)').matches
+  useEffect(() => { if (isPhone) window.location.replace('/#download') }, [isPhone])
 
   // cursor state
   const cursorRef = useRef<HTMLDivElement>(null)
@@ -376,13 +418,25 @@ export function LoginPage() {
   const confirmRef = useRef<import('firebase/auth').ConfirmationResult | null>(null)
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
 
+  // While the OTP modal is open the cursor ignores the buttons behind it and
+  // instead morphs tightly around the modal's own Cancel / Send-code buttons.
+  const otpOpenRef = useRef(false)
+  const otpNodesRef = useRef<Array<{ el: HTMLElement; pad: number; r: number; invert: boolean }>>([])
+  useEffect(() => {
+    otpOpenRef.current = otpStep !== 'idle'
+    otpNodesRef.current = otpStep === 'idle'
+      ? []
+      : Array.from(document.querySelectorAll<HTMLElement>('.umc-otp-btn')).map(el => ({ el, pad: 2, r: 16, invert: false }))
+  }, [otpStep])
+
   useEffect(() => {
     if (status !== 'signed-in') return
-    // A wrong-role account that landed here is still signed in — sign it out so
-    // the visitor stays on the login page (with the banner) and can retry.
-    if (wrongRole) { logout() }
-    else navigate('/', { replace: true })
-  }, [status, wrongRole, navigate, logout])
+    // A wrong-role account that bounced back here is still signed in — sign it
+    // out so the visitor stays on /login (with the banner) and can retry.
+    if (wrongRole) { logout(); return }
+    // Otherwise a successful sign-in heads to the member dashboard.
+    window.location.assign('/member/dashboard')
+  }, [status, wrongRole, logout])
 
   // cursor morph loop
   useEffect(() => {
@@ -396,7 +450,8 @@ export function LoginPage() {
 
     let prevHit: (typeof nodesRef.current)[0] | null = null
     const tick = () => {
-      const nodes = nodesRef.current
+      // While the modal is open, only its own buttons are reachable.
+      const nodes = otpOpenRef.current ? otpNodesRef.current : nodesRef.current
       let hit: (typeof nodes)[0] | null = null
       for (const item of nodes) {
         const { left, top, right, bottom } = item.el.getBoundingClientRect()
@@ -438,7 +493,7 @@ export function LoginPage() {
     if (!root) { nodesRef.current = []; return }
     nodesRef.current = [
       ...Array.from(root.querySelectorAll<HTMLElement>('.umc-login-back')).map(el => ({ el, pad: 14, r: 999, invert: true  })),
-      ...Array.from(root.querySelectorAll<HTMLElement>('.umc-auth-btn')).map(el =>   ({ el, pad: 12, r: 18,  invert: false })),
+      ...Array.from(root.querySelectorAll<HTMLElement>('.umc-auth-btn')).map(el =>   ({ el, pad: -2, r: 16,  invert: false })),
       ...Array.from(root.querySelectorAll<HTMLElement>('.umc-login-foot a')).map(el =>({ el, pad: 6,  r: 999, invert: false })),
     ]
   }, [])
@@ -470,14 +525,22 @@ export function LoginPage() {
     const btn = e.currentTarget
     const label = btn.querySelector<HTMLSpanElement>('.umc-auth-label')!
     markClicked(btn, label)
-    try { await signInWithGoogle() } catch { btn.classList.remove('umc-clicked'); btn.disabled = false; label.textContent = 'Continue with Google' }
+    try { await signInWithGoogle(wrongRole) }
+    catch {
+      btn.classList.remove('umc-clicked'); btn.disabled = false; label.textContent = 'Continue with Google'
+      setAuthError("Sign-in didn't complete. Please try again.")
+    }
   }
 
   const handleApple = async (e: React.MouseEvent<HTMLButtonElement>) => {
     const btn = e.currentTarget
     const label = btn.querySelector<HTMLSpanElement>('.umc-auth-label')!
     markClicked(btn, label)
-    try { await signInWithApple() } catch { btn.classList.remove('umc-clicked'); btn.disabled = false; label.textContent = 'Continue with Apple' }
+    try { await signInWithApple(wrongRole) }
+    catch {
+      btn.classList.remove('umc-clicked'); btn.disabled = false; label.textContent = 'Continue with Apple'
+      setAuthError("Sign-in didn't complete. Please try again.")
+    }
   }
 
   const handlePhoneClick = () => { setAuthError(null); setOtpStep('phone') }
@@ -492,6 +555,7 @@ export function LoginPage() {
     } catch (err) {
       console.error('Phone sign-in error:', err)
       setOtpStep('idle')
+      setAuthError("Sign-in didn't complete. Please try again.")
     }
   }
 
@@ -503,6 +567,9 @@ export function LoginPage() {
       console.error('OTP confirm error:', err)
     }
   }
+
+  // Don't flash the desktop sign-in UI while the phone redirect kicks in.
+  if (isPhone) return null
 
   return (
     <>
@@ -518,7 +585,7 @@ export function LoginPage() {
             <img src={`${import.meta.env.BASE_URL}app_logo.png`} alt="Unified Medical Care" />
           </div>
 
-          <h1 className="umc-login-hdg">Welcome.</h1>
+          <h1 className="umc-login-hdg">Welcome</h1>
           <p className="umc-login-sub">Unified Medical Care · Member Portal</p>
 
           {authError && (
@@ -594,6 +661,7 @@ export function LoginPage() {
 
       {otpStep !== 'idle' && (
         <OtpModal
+          key={otpStep}
           step={otpStep}
           onSendOtp={handleSendOtp}
           onConfirm={handleOtpConfirm}

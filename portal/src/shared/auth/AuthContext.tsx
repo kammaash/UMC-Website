@@ -12,8 +12,8 @@ interface AuthValue {
   status: AuthStatus
   user: User | null
   profile: UserProfile | null
-  signInWithGoogle: () => Promise<void>
-  signInWithApple: () => Promise<void>
+  signInWithGoogle: (forceSelect?: boolean) => Promise<void>
+  signInWithApple: (forceSelect?: boolean) => Promise<void>
   signInWithPhone: (phoneNumber: string, verifier: ApplicationVerifier) => Promise<ConfirmationResult>
   logout: () => Promise<void>
 }
@@ -35,8 +35,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const signInWithGoogle = async () => { await signInWithPopup(auth, new GoogleAuthProvider()) }
-  const signInWithApple = async () => { await signInWithPopup(auth, new OAuthProvider('apple.com')) }
+  // forceSelect → always show the account chooser instead of silently reusing
+  // the provider's cached account (used after a wrong-role bounce so the
+  // visitor can pick a different Google/Apple account).
+  const signInWithGoogle = async (forceSelect = false) => {
+    const provider = new GoogleAuthProvider()
+    if (forceSelect) provider.setCustomParameters({ prompt: 'select_account' })
+    await signInWithPopup(auth, provider)
+  }
+  const signInWithApple = async (forceSelect = false) => {
+    const provider = new OAuthProvider('apple.com')
+    if (forceSelect) provider.setCustomParameters({ prompt: 'login' })
+    await signInWithPopup(auth, provider)
+  }
   const signInWithPhone = (phoneNumber: string, verifier: ApplicationVerifier) =>
     signInWithPhoneNumber(auth, phoneNumber, verifier)
   const logout = async () => { await signOut(auth) }

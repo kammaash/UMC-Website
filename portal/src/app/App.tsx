@@ -15,7 +15,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<RoleLanding />} />
-      <Route path="/doctor" element={<RequireRole role="doctor" />}>
+      <Route path="/dashboard" element={<RequireRole role="doctor" />}>
         <Route element={<DoctorShell />}>
           <Route index element={<HomePage />} />
           <Route path="schedule" element={<SchedulePage />} />

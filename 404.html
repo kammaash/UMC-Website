@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Redirecting…</title>
+  <script>
+    // GitHub Pages serves this root 404 for any unknown path. The portal is a
+    // client-routed SPA at /member/*, so rewrite deep portal routes into
+    // /member/?p=<route> — portal/index.html decodes ?p back into the route.
+    // Anything else (unknown marketing path) falls back to the home page.
+    (function () {
+      var l = window.location;
+      if (l.pathname === '/member' || l.pathname.indexOf('/member/') === 0) {
+        l.replace(
+          l.protocol + '//' + l.host + '/member/?p=' +
+          encodeURIComponent(l.pathname.slice('/member'.length) + l.search) +
+          '#' + l.hash.slice(1)
+        );
+      } else {
+        l.replace(l.protocol + '//' + l.host + '/');
+      }
+    })();
+  </script>
+</head>
+<body></body>
+</html>

@@ -8,6 +8,6 @@ export function RequireRole({ role }: { role: string }) {
 
   if (access === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
   if (access === 'unauthenticated') return <Navigate to="/login" replace />
-  if (access === 'wrong-role' || access === 'no-profile') return <Navigate to="/wrong-role" replace />
+  if (access === 'wrong-role' || access === 'no-profile') return <Navigate to="/login" replace state={{ error: 'wrong-role' }} />
   return <Outlet />
 }

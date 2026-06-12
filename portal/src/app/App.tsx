@@ -2,7 +2,6 @@ import { Routes, Route } from 'react-router-dom'
 import { RequireRole } from '../shared/auth/RequireRole'
 import { RoleLanding } from './RoleLanding'
 import { LoginPage } from './LoginPage'
-import { WrongRolePage } from './WrongRolePage'
 import { DoctorShell } from '../roles/doctor/DoctorShell'
 import { HomePage } from '../roles/doctor/pages/HomePage'
 import { SchedulePage } from '../roles/doctor/pages/SchedulePage'
@@ -15,7 +14,6 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/wrong-role" element={<WrongRolePage />} />
       <Route path="/" element={<RoleLanding />} />
       <Route path="/doctor" element={<RequireRole role="doctor" />}>
         <Route element={<DoctorShell />}>

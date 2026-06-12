@@ -804,7 +804,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
       {/* hero layer — auto blur morphs the words into the black */}
       <div className="hero-layer" style={{ filter: `blur(${blur}px)`, opacity: heroOpacity }}>
         {/* returning-user shortcut — quiet top-right entry into the member portal */}
-        <a className="portal-entry" href="/member/login" aria-label="Sign in to the member portal"
+        <a className="portal-entry" href="/member/" aria-label="Sign in to the member portal"
           onClick={e => {
             const el = e.currentTarget;
             el.classList.add('clicked');
@@ -895,7 +895,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
       </div>
 
       {/* top-right login shortcut — visible when the pillars are bloomed */}
-      <a className="sh-login" href="/member/login" data-show={headShown} aria-label="Sign in to the member portal"
+      <a className="sh-login" href="/member/" data-show={headShown} aria-label="Sign in to the member portal"
         onClick={e => {
           const el = e.currentTarget;
           el.classList.add('clicked');

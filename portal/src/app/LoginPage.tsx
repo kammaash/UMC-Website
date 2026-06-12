@@ -482,7 +482,7 @@ export function LoginPage() {
 
         <div className="umc-login-panel">
           <div className="umc-login-mark">
-            <img src="/app_logo.png" alt="Unified Medical Care" />
+            <img src={`${import.meta.env.BASE_URL}app_logo.png`} alt="Unified Medical Care" />
           </div>
 
           <h1 className="umc-login-hdg">Welcome.</h1>

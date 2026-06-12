@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { RecaptchaVerifier } from 'firebase/auth'
 import { auth } from '../shared/lib/firebase'
 import { useAuth } from '../shared/auth/AuthContext'
@@ -84,6 +84,26 @@ const css = `
     font-family: var(--mono); font-size: 10.5px; font-weight: 600;
     letter-spacing: 0.26em; text-transform: uppercase;
     color: var(--fg-soft); text-align: center; margin: 0 0 56px;
+  }
+
+  /* inline error / warning (e.g. wrong-role) */
+  .umc-login-error {
+    width: 100%; max-width: 400px;
+    display: flex; align-items: flex-start; gap: 9px;
+    margin: -28px 0 28px; padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255,69,58,0.09);
+    border: 1px solid rgba(255,69,58,0.38);
+    color: #ff6b60;
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.04em; line-height: 1.55; text-transform: uppercase;
+  }
+  .umc-login-error::before {
+    content: "!"; flex-shrink: 0;
+    width: 15px; height: 15px; margin-top: 1px;
+    display: grid; place-items: center;
+    border-radius: 50%; border: 1.4px solid currentColor;
+    font-size: 10px; line-height: 1;
   }
 
   /* auth buttons */
@@ -331,8 +351,16 @@ function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps) {
 
 /* ─── main page ──────────────────────────────────────────────────────────── */
 export function LoginPage() {
-  const { status, signInWithGoogle, signInWithApple, signInWithPhone } = useAuth()
+  const { status, signInWithGoogle, signInWithApple, signInWithPhone, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Wrong-role / no-portal accounts are bounced back here with an inline error
+  // instead of a separate page.
+  const wrongRole = (location.state as { error?: string } | null)?.error === 'wrong-role'
+  const [authError, setAuthError] = useState<string | null>(
+    wrongRole ? "This account isn't set up for a web portal. Sign in with a doctor account." : null
+  )
 
   // cursor state
   const cursorRef = useRef<HTMLDivElement>(null)
@@ -349,8 +377,12 @@ export function LoginPage() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
 
   useEffect(() => {
-    if (status === 'signed-in') navigate('/', { replace: true })
-  }, [status, navigate])
+    if (status !== 'signed-in') return
+    // A wrong-role account that landed here is still signed in — sign it out so
+    // the visitor stays on the login page (with the banner) and can retry.
+    if (wrongRole) { logout() }
+    else navigate('/', { replace: true })
+  }, [status, wrongRole, navigate, logout])
 
   // cursor morph loop
   useEffect(() => {
@@ -427,6 +459,7 @@ export function LoginPage() {
 
   // clicked state helper
   const markClicked = (btn: HTMLButtonElement, label: HTMLSpanElement) => {
+    setAuthError(null)
     btn.classList.add('umc-clicked')
     btn.disabled = true
     setTimeout(() => { label.textContent = 'Redirecting…' }, 380)
@@ -447,7 +480,7 @@ export function LoginPage() {
     try { await signInWithApple() } catch { btn.classList.remove('umc-clicked'); btn.disabled = false; label.textContent = 'Continue with Apple' }
   }
 
-  const handlePhoneClick = () => setOtpStep('phone')
+  const handlePhoneClick = () => { setAuthError(null); setOtpStep('phone') }
 
   const handleSendOtp = async (phone: string) => {
     if (!recaptchaRef.current) {
@@ -487,6 +520,10 @@ export function LoginPage() {
 
           <h1 className="umc-login-hdg">Welcome.</h1>
           <p className="umc-login-sub">Unified Medical Care · Member Portal</p>
+
+          {authError && (
+            <div className="umc-login-error" role="alert">{authError}</div>
+          )}
 
           <div className="umc-login-btns">
             {/* Google */}

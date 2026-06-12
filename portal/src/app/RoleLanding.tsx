@@ -8,6 +8,6 @@ export function RoleLanding() {
   const { status, profile } = useAuth()
   if (status === 'unknown') return <div style={{ padding: 40 }}>Loading…</div>
   if (status === 'signed-out') return <Navigate to="/login" replace />
-  if (!profile || !SUPPORTED_ROLES.has(profile.role)) return <Navigate to="/wrong-role" replace />
+  if (!profile || !SUPPORTED_ROLES.has(profile.role)) return <Navigate to="/login" replace state={{ error: 'wrong-role' }} />
   return <Navigate to={`/${profile.role}`} replace />
 }

@@ -312,6 +312,8 @@ const css = `
     transition: background 0.22s ease, border-color 0.22s ease;
   }
   .umc-cursor.is-active { background: #fff; border-color: #fff; }
+  /* hidden for the whole login-success animation */
+  .umc-cursor.is-hidden { display: none; }
   @media (pointer: coarse) {
     .umc-login-root * { cursor: auto !important; }
     .umc-cursor { display: none; }
@@ -321,8 +323,88 @@ const css = `
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+
+  /* ── login success (green) overlay ─────────────────────────────────────── */
+  /* Rendered OUTSIDE .umc-login-root, so it can't inherit the root's CSS vars —
+     easing + fonts are inlined here. Ports the phone app's green Hero-flight +
+     icon→checkmark success animation (lib/Widgets/navigation_animations.dart). */
+  .umc-success-panel {
+    position: fixed; z-index: 9500;
+    background: #22C55E; overflow: hidden;
+    cursor: none;
+    display: grid; place-items: center;
+    box-shadow: 0 18px 44px rgba(34,197,94,0.30);
+    will-change: top, left, width, height, border-radius;
+    transition:
+      top           0.75s cubic-bezier(0.16,1,0.3,1),
+      left          0.75s cubic-bezier(0.16,1,0.3,1),
+      width         0.75s cubic-bezier(0.16,1,0.3,1),
+      height        0.75s cubic-bezier(0.16,1,0.3,1),
+      border-radius 0.75s cubic-bezier(0.16,1,0.3,1);
+  }
+  /* fallback when there's no originating button rect: fade + scale in */
+  .umc-success-panel.is-fade {
+    inset: 0; border-radius: 0;
+    opacity: 0; transform: scale(0.92);
+    transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.16,1,0.3,1);
+  }
+  .umc-success-panel.is-fade.is-expanded { opacity: 1; transform: scale(1); }
+
+  /* radial highlight, top-center */
+  .umc-success-glow {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% -8%,
+      rgba(255,255,255,0.24), rgba(255,255,255,0.06) 42%, transparent 72%);
+  }
+
+  /* shimmer sweep */
+  .umc-success-shimmer {
+    position: absolute; top: -20%; left: 0; width: 170px; height: 140%;
+    z-index: 1; pointer-events: none; opacity: 0;
+    background: linear-gradient(90deg,
+      rgba(255,255,255,0) 0%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0) 100%);
+    transform: rotate(-20deg) translateX(-180%);
+  }
+  .umc-success-shimmer.is-on {
+    animation: umc-success-shimmer 0.85s cubic-bezier(0.16,1,0.3,1) forwards;
+  }
+  @keyframes umc-success-shimmer {
+    0%   { opacity: 0; transform: rotate(-20deg) translateX(-180%); }
+    18%  { opacity: 1; }
+    82%  { opacity: 1; }
+    100% { opacity: 0; transform: rotate(-20deg) translateX(680%); }
+  }
+
+  /* checkmark — fades in with an elastic overshoot, then a glow pulse */
+  .umc-success-check {
+    grid-area: 1 / 1; z-index: 3;
+    width: 112px; height: 112px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,0.15);
+    border: 1.2px solid rgba(255,255,255,0.30);
+    box-shadow: 0 0 30px 2px rgba(255,255,255,0.12);
+    opacity: 0; transform: scale(0.78);
+  }
+  .umc-success-check svg { width: 58px; height: 58px; color: #fff; }
+  .umc-success-check.is-in {
+    animation:
+      umc-success-check-in    0.5s  cubic-bezier(0.34,1.56,0.64,1) forwards,
+      umc-success-check-pulse 1.15s ease-in-out 0.42s;
+  }
+  @keyframes umc-success-check-in {
+    from { opacity: 0; transform: scale(0.78); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes umc-success-check-pulse {
+    0%,100% { box-shadow: 0 0 30px 2px rgba(255,255,255,0.12); }
+    50%     { box-shadow: 0 0 48px 7px rgba(255,255,255,0.22); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .umc-login-back, .umc-login-panel { animation: none; opacity: 1; }
+    .umc-success-panel { transition: none; }
+    .umc-success-shimmer.is-on { animation: none; opacity: 0; }
+    .umc-success-check.is-in { animation: none; opacity: 1; transform: scale(1); }
   }
 `
 
@@ -387,6 +469,71 @@ function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps) {
   )
 }
 
+/* ─── login success animation ────────────────────────────────────────────── */
+/**
+ * Fullscreen green success animation: a FLIP morph expands the tapped button
+ * into a fullscreen green panel, then an elastic checkmark fades in
+ * (shimmer + glow) before it hard-navigates to /member/.
+ * Mirrors the phone app's LoginSuccessPage Hero flight.
+ */
+function SuccessOverlay({ rect }: { rect: DOMRect | null }) {
+  const reduced =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  // A real origin rect drives the morph; without one (or reduced motion) we
+  // fall back to a centered fade-in.
+  const hasRect = !!rect && !reduced
+  const [expanded, setExpanded] = useState(reduced)
+  const [checking, setChecking] = useState(reduced)
+
+  useEffect(() => {
+    if (reduced) {
+      const t = setTimeout(() => window.location.assign('/member/'), 700)
+      return () => clearTimeout(t)
+    }
+    // Paint the collapsed frame first, then flip to expanded so the morph runs.
+    const raf = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setExpanded(true)),
+    )
+    const toCheck = setTimeout(() => setChecking(true), 780) // after the morph
+    const toNav = setTimeout(() => window.location.assign('/member/'), 2700)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(toCheck)
+      clearTimeout(toNav)
+    }
+  }, [reduced])
+
+  const style: React.CSSProperties | undefined = !hasRect
+    ? undefined
+    : expanded
+      ? { top: 0, left: 0, width: '100vw', height: '100vh', borderRadius: 0 }
+      : {
+          top: rect!.top,
+          left: rect!.left,
+          width: rect!.width,
+          height: rect!.height,
+          borderRadius: 18,
+        }
+
+  const className = hasRect
+    ? 'umc-success-panel'
+    : `umc-success-panel is-fade ${expanded ? 'is-expanded' : ''}`
+
+  return (
+    <div className={className} style={style} role="status" aria-label="Signed in">
+      <div className="umc-success-glow" />
+      <div className={`umc-success-shimmer ${checking ? 'is-on' : ''}`} />
+      <div className={`umc-success-check ${checking ? 'is-in' : ''}`}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
+          strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 12.5l5 5L20 6.5" />
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 /* ─── main page ──────────────────────────────────────────────────────────── */
 export function LoginPage() {
   const { status, signInWithGoogle, signInWithApple, signInWithPhone, logout } = useAuth()
@@ -418,6 +565,11 @@ export function LoginPage() {
   const confirmRef = useRef<import('firebase/auth').ConfirmationResult | null>(null)
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
 
+  // Green success animation: the originating button's rect (for the FLIP morph),
+  // captured at click time and replayed once sign-in completes.
+  const originRef = useRef<DOMRect | null>(null)
+  const [success, setSuccess] = useState<{ rect: DOMRect | null } | null>(null)
+
   // While the OTP modal is open the cursor ignores the buttons behind it and
   // instead morphs tightly around the modal's own Cancel / Send-code buttons.
   const otpOpenRef = useRef(false)
@@ -434,10 +586,10 @@ export function LoginPage() {
     // A wrong-role account that bounced back here is still signed in — sign it
     // out so the visitor stays on /login (with the banner) and can retry.
     if (wrongRole) { logout(); return }
-    // Otherwise a successful sign-in heads to the member dashboard. Navigate to
-    // the real /member/ index (RoleLanding then routes to /dashboard) so the
-    // common path never depends on the 404 SPA fallback.
-    window.location.assign('/member/')
+    // Otherwise a successful sign-in plays the green success animation, which
+    // then hard-navigates to the real /member/ index (RoleLanding routes onward,
+    // so the common path never depends on the 404 SPA fallback).
+    setSuccess({ rect: originRef.current })
   }, [status, wrongRole, logout])
 
   // cursor morph loop
@@ -526,6 +678,7 @@ export function LoginPage() {
   const handleGoogle = async (e: React.MouseEvent<HTMLButtonElement>) => {
     const btn = e.currentTarget
     const label = btn.querySelector<HTMLSpanElement>('.umc-auth-label')!
+    originRef.current = btn.getBoundingClientRect()
     markClicked(btn, label)
     try { await signInWithGoogle(wrongRole) }
     catch {
@@ -537,6 +690,7 @@ export function LoginPage() {
   const handleApple = async (e: React.MouseEvent<HTMLButtonElement>) => {
     const btn = e.currentTarget
     const label = btn.querySelector<HTMLSpanElement>('.umc-auth-label')!
+    originRef.current = btn.getBoundingClientRect()
     markClicked(btn, label)
     try { await signInWithApple(wrongRole) }
     catch {
@@ -545,7 +699,10 @@ export function LoginPage() {
     }
   }
 
-  const handlePhoneClick = () => { setAuthError(null); setOtpStep('phone') }
+  const handlePhoneClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    originRef.current = e.currentTarget.getBoundingClientRect()
+    setAuthError(null); setOtpStep('phone')
+  }
 
   const handleSendOtp = async (phone: string) => {
     if (!recaptchaRef.current) {
@@ -577,7 +734,7 @@ export function LoginPage() {
     <>
       <style>{css}</style>
       <div className="umc-login-root" ref={registerNodes}>
-        <button className="umc-login-back" onClick={() => (window.location.href = '/')}>
+        <button className="umc-login-back" onClick={() => (window.location.href = '/#pillars')}>
           <span className="umc-login-back-arr">←</span>
           <span>Back to site</span>
         </button>
@@ -658,7 +815,7 @@ export function LoginPage() {
           </p>
         </div>
 
-        <div className="umc-cursor" ref={cursorRef} aria-hidden="true" />
+        <div className={`umc-cursor ${success ? 'is-hidden' : ''}`} ref={cursorRef} aria-hidden="true" />
       </div>
 
       {otpStep !== 'idle' && (
@@ -670,6 +827,8 @@ export function LoginPage() {
           onCancel={() => setOtpStep('idle')}
         />
       )}
+
+      {success && <SuccessOverlay rect={success.rect} />}
     </>
   )
 }

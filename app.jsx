@@ -85,7 +85,6 @@ function App() {
   return (
     <React.Fragment>
       <CursorLayer />
-      <ScrollRail />
       {!deepLink && <Loader onDone={() => setRevealed(true)} />}
       <div className="scroll-shell">
         <IntroStage holdMs={2000} diveMs={800} maxSpin={10} hubCrossScale={0.30} heroReady={revealed} />

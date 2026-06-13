@@ -5,14 +5,14 @@
   const lerp = (a, b, t) => a + (b - a) * t;
 
   // Elements the ring morphs to wrap
-  const BTN_SEL = ".btn, .prong, .role-card, .rn-tab, .rn-cta, .rn-back, .faq-item, .portal-entry, .sh-login";
+  const BTN_SEL = ".btn, .prong, .role-card, .rn-tab, .rn-cta, .rn-back, .faq-item, .portal-entry, .sh-login, .scroll-cue-line, .di-demo-frame, .ef-join, .ending-footer .ef-col a";
 
   // All interactive elements (for hoverEl tracking)
   const INTERACTIVE = [
     "a", "button", "[role='button']",
     ".prong", ".role-card", ".faq-q", ".join-cta",
     ".btn", ".rn-tab", ".rn-back", ".rn-cta",
-    ".portal-entry", ".sh-login",
+    ".portal-entry", ".sh-login", ".scroll-cue-line", ".di-demo-frame", ".ef-join",
     "input", "select",
   ].join(",");
 
@@ -61,45 +61,75 @@
         const st = s.current, me = m.current;
         const btn = st.hoverEl && st.hoverEl.closest ? st.hoverEl.closest(BTN_SEL) : null;
 
-        // Within ~52px of right edge and rail is visible → snap ring around thumb
-        const railThumb = (!btn && st.x > window.innerWidth - 52)
-          ? document.querySelector('.scroll-rail[data-show="true"] .sr-thumb') : null;
-
-        let wrapEl = btn, role = false, isRail = false;
+        let wrapEl = btn, role = false, isRail = false, isCueLine = false, isFooterLink = false, isRoleCircle = false;
         // Role pillars → wrap the visible cap circle, not the full prong hit area
-        if (btn && btn.matches && btn.matches(".prong")) wrapEl = btn.querySelector(".cap") || btn;
+        if (btn && btn.matches && btn.matches(".prong")) {
+          wrapEl = btn.querySelector(".cap") || btn;
+          isRoleCircle = true;
+        }
         // Hero login → wrap the inner text span so the ring centres on the text
         if (btn && btn.matches && btn.matches(".portal-entry")) wrapEl = btn.querySelector(".pe-go") || btn;
+        if (btn && btn.matches && btn.matches(".scroll-cue-line")) isCueLine = true;
+        if (btn && btn.matches && btn.matches(".ending-footer .ef-col a")) {
+          wrapEl = btn.querySelector(".ef-link-text") || btn;
+          isFooterLink = true;
+        }
         if (btn) role = btn.matches && btn.matches(".prong, .role-card");
-        else if (railThumb) { wrapEl = railThumb; isRail = true; }
 
         let tx = st.x, ty = st.y, tw, th, tr;
         if (wrapEl) {
           const r = wrapEl.getBoundingClientRect();
-          const pad = isRail ? 6 : (role ? 5 : 7);
-          tw = r.width + pad * 2; th = r.height + pad * 2;
-          tx = r.left + r.width / 2; ty = r.top + r.height / 2;
-          const br = parseFloat(getComputedStyle(wrapEl).borderRadius) || (isRail ? 999 : 10);
-          tr = Math.min(br + pad, Math.min(tw, th) / 2);
+          if (isFooterLink) {
+            tw = r.width; th = 0;
+            tx = r.left + r.width / 2; ty = r.bottom + 5;
+            tr = 0;
+          } else if (isCueLine) {
+            tw = 13; th = r.height + 8;
+            tx = r.left + r.width / 2; ty = r.top + r.height / 2;
+            tr = 999;
+          } else if (isRoleCircle) {
+            const pad = 5;
+            const d = Math.max(r.width, r.height) + pad * 2;
+            tw = th = d;
+            tx = r.left + r.width / 2; ty = r.top + r.height / 2;
+            tr = d / 2;
+          } else {
+            const pad = isRail ? 6 : (role ? 5 : 7);
+            tw = r.width + pad * 2; th = r.height + pad * 2;
+            tx = r.left + r.width / 2; ty = r.top + r.height / 2;
+            const br = parseFloat(getComputedStyle(wrapEl).borderRadius) || (isRail ? 999 : 10);
+            tr = Math.min(br + pad, Math.min(tw, th) / 2);
+          }
         } else {
           tw = th = st.down ? 20 : 26; tr = tw / 2;
         }
 
         me.rx = lerp(me.rx, tx, 0.22); me.ry = lerp(me.ry, ty, 0.22);
         me.rw = lerp(me.rw, tw, 0.24); me.rh = lerp(me.rh, th, 0.24); me.rr = lerp(me.rr, tr, 0.24);
+        if (isRoleCircle) {
+          const d = (me.rw + me.rh) / 2;
+          me.rw = d; me.rh = d; me.rr = d / 2;
+        }
 
         if (ring.current) {
           const el = ring.current;
-          // White on dark screens (loader, pre-bloom intro, role dive); black on light pages
+          // White on dark screens (loader, pre-bloom intro, role dive, ending footer);
+          // black on light pages.
           const loaderEl = document.querySelector(".loader");
           const introEl = document.querySelector(".intro");
+          const underPointer = document.elementFromPoint(st.x, st.y);
+          const endingFooter = underPointer && underPointer.closest
+            ? underPointer.closest(".ending-footer")
+            : null;
           const darkBg = (loaderEl && !loaderEl.classList.contains("done"))
             || (introEl && !introEl.classList.contains("lit"))
-            || !!document.querySelector('.dive[data-show="true"]');
+            || !!document.querySelector('.dive[data-show="true"]')
+            || !!endingFooter;
           // Over a login link → fill solid white + difference-blend to invert the
           // text underneath. mix-blend-mode: difference only inverts against WHITE,
           // so the fill must be #fff regardless of the page background.
           const fillEl = wrapEl && wrapEl.closest && wrapEl.closest('.portal-entry, .sh-login');
+          el.style.borderWidth = isFooterLink ? "0 0 1.6px" : "1.4px";
           el.style.borderColor = fillEl ? "#fff" : (darkBg ? "#f3f3f3" : "#0b0b0b");
           el.style.background = fillEl ? "#fff" : "transparent";
           el.style.mixBlendMode = fillEl ? "difference" : "normal";

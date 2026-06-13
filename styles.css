@@ -115,7 +115,7 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
    never consumed by native scrolling. Scoped to the pre-bloom phases: once
    bloomed, overscroll-behavior must return to auto so the wheel/touch can chain
    from this overflow:hidden section up to .scroll-shell and reach the page. */
-.intro:not([data-phase="bloomed"]) { touch-action: none; overscroll-behavior: none; }
+.intro:not([data-phase="bloomed"]):not([data-phase="dive"]) { touch-action: none; overscroll-behavior: none; }
 .intro.lit {
   --fg: var(--ink);
   --fg-soft: var(--ink-soft);
@@ -179,11 +179,21 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
   position: absolute; bottom: clamp(26px, 5vh, 48px); left: 50%; transform: translateX(-50%);
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
   color: var(--fg-soft); display: flex; flex-direction: column; align-items: center; gap: 12px;
-  opacity: 0;
+  opacity: 0; pointer-events: auto;
 }
 .intro.in .hero-layer .scroll-cue { animation: rise 0.9s var(--ease-out) 1.25s forwards; }
-.hero-layer .scroll-cue .line { width: 1px; height: 42px; background: rgba(243,243,243,0.25); position: relative; overflow: hidden; }
-.hero-layer .scroll-cue .line::after { content: ""; position: absolute; top: -42px; left: 0; width: 1px; height: 42px; background: var(--fg); animation: cuemove 2s var(--ease-inout) infinite; }
+.hero-layer .scroll-cue .line {
+  appearance: none; border: 0; padding: 0; background: transparent;
+  width: 34px; height: 66px; position: relative; overflow: hidden;
+  border-radius: 999px; cursor: pointer;
+}
+.hero-layer .scroll-cue .line::before,
+.hero-layer .scroll-cue .line::after {
+  content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+  width: 1px; height: 42px; pointer-events: none;
+}
+.hero-layer .scroll-cue .line::before { top: 12px; background: rgba(243,243,243,0.25); }
+.hero-layer .scroll-cue .line::after { top: -42px; background: var(--fg); animation: cuemove 2s var(--ease-inout) infinite; }
 @keyframes cuemove { to { top: 42px; } }
 @keyframes rise { to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 
@@ -191,8 +201,8 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
    CROSS STAGE — the building, sharpened medical cross
    ============================================================ */
 .cross-stage { position: absolute; inset: 0; z-index: 3; pointer-events: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-.intro[data-phase="hero"] .cross-stage,
-.intro[data-phase="holding"] .cross-stage { pointer-events: auto; }
+.intro[data-phase="hero"] .cross,
+.intro[data-phase="holding"] .cross { pointer-events: auto; }
 
 .cross-wrap {
   position: absolute; top: 50%; left: 50%;
@@ -386,9 +396,16 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
 /* ============================================================
    CLICK-BASED CAMERA DIVE INTO A ROLE (pinhole + rack focus)
    ============================================================ */
-.dive { position: fixed; inset: 0; z-index: 50; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; clip-path: circle(0px at 50% 50%); will-change: clip-path; }
+.dive {
+  position: fixed; inset: 0; z-index: 50; display: block;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+  clip-path: circle(0px at 50% 50%); will-change: clip-path;
+  overflow-y: auto; overflow-x: hidden; scrollbar-width: none;
+  overscroll-behavior: contain;
+}
 .dive[data-show="true"] { opacity: 1; pointer-events: auto; }
-.dive .dive-bg { position: absolute; inset: 0; background: #0a0a0a; }
+.dive::-webkit-scrollbar { display: none; }
+.dive .dive-bg { position: fixed; inset: 0; background: #0a0a0a; }
 /* on zoom-out: hold black, then morph the background to the no-hover cap color,
    and morph the symbol white->black IN SYNC (same delay/duration) so it stays visible */
 .dive.closing .dive-bg { background: var(--bg-2); transition: background var(--dive-bg-dur, 820ms) ease var(--dive-bg-delay, 500ms); }
@@ -396,7 +413,12 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
 
 /* huge symbol filling the background — stays WHITE when the role page is open.
    responsive (capped so it never runs away on big screens) and centred. */
-.dive-icon { position: relative; z-index: 1; width: min(78vmin, 720px); height: min(78vmin, 720px); margin: 0; justify-self: center; align-self: center; color: #f3f3f3; display: grid; place-items: center; will-change: transform, opacity; }
+.dive-icon {
+  position: fixed; z-index: 1; top: 50%; left: 50%;
+  width: min(78vmin, 720px); height: min(78vmin, 720px);
+  margin: calc(min(78vmin, 720px) / -2) 0 0 calc(min(78vmin, 720px) / -2);
+  color: #f3f3f3; display: grid; place-items: center; will-change: transform, opacity;
+}
 .dive-icon svg { width: 100%; height: 100%; opacity: 0.92; stroke-width: 0.7; transition: filter 1.2s ease, opacity 1.2s ease; }
 /* optical centring: the pill glyph sits 6.25% left of its viewBox centre and the
    stethoscope 3.33% right — nudge each back so all four role glyphs are centred. */
@@ -405,15 +427,20 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
 /* rack-focus: blur eases in SLOWLY as the text enters, but the symbol stays white */
 .dive.focused .dive-icon svg { filter: blur(16px); opacity: 0.6; }
 
-/* role copy laid over the dive — a scrollable column so the demo video below the
-   copy is reachable (the page itself is locked while a role is open) */
+/* role copy laid over the dive. The full role page scrolls, so the pointer and
+   wheel feel consistent over copy, background, and the demo video. */
 .dive-info {
-  position: absolute; left: clamp(24px, 7vw, 120px); top: 0; bottom: 0;
-  width: min(560px, 82vw); overflow-y: auto; overflow-x: hidden; scrollbar-width: none;
+  position: relative; left: auto; top: auto; bottom: auto;
+  width: min(560px, 82vw); min-height: 100vh; min-height: 100dvh;
+  margin-left: clamp(24px, 7vw, 120px); overflow: visible; scrollbar-width: none;
   padding: clamp(84px, 17vh, 170px) 6px clamp(64px, 10vh, 120px);
   color: #f3f3f3; z-index: 2; overscroll-behavior: contain;
 }
 .dive-info::-webkit-scrollbar { display: none; }
+.dive-info.di-leaving {
+  position: absolute; top: 0; left: clamp(24px, 7vw, 120px);
+  margin-left: 0; min-height: 100vh; min-height: 100dvh;
+}
 
 /* ---- directional page transition when switching roles via the nav ----
    The two layers overlap (absolute); the live one slides in from the target's
@@ -825,7 +852,10 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
 @media (max-width: 860px) {
   .hub { --hub-reserve: 318px; padding-top: clamp(100px, 17vh, 150px); }
   .hub-inner { width: min(74vmin, 460px, calc(100dvh - var(--hub-reserve)), calc(100vw - var(--prong-w) - var(--hub-reserve-x))); height: min(74vmin, 460px, calc(100dvh - var(--hub-reserve)), calc(100vw - var(--prong-w) - var(--hub-reserve-x))); }
-  .dive-icon { width: min(100vmin, 640px); height: min(100vmin, 640px); }
+  .dive-icon {
+    width: min(100vmin, 640px); height: min(100vmin, 640px);
+    margin: calc(min(100vmin, 640px) / -2) 0 0 calc(min(100vmin, 640px) / -2);
+  }
   .link-row { gap: 14px; }
   .link-row .lr-meta { display: none; }
   .footer .top { gap: 28px; }
@@ -843,10 +873,16 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
   .prong .cap svg { width: 32px; height: 32px; }
 
   /* dive: symbol becomes a faint backdrop, copy scrolls full-width */
-  .dive-icon { width: min(116vmin, 560px); height: min(116vmin, 560px); }
+  .dive-icon {
+    width: min(116vmin, 560px); height: min(116vmin, 560px);
+    margin: calc(min(116vmin, 560px) / -2) 0 0 calc(min(116vmin, 560px) / -2);
+  }
   .dive-info {
-    position: absolute; top: clamp(72px, 12vh, 104px); left: 0; right: 0; bottom: 0;
-    transform: none; max-width: none; max-height: none; padding: 0 clamp(22px, 6vw, 34px) clamp(104px, 18vh, 140px); overflow-y: auto;
+    position: relative; top: auto; left: auto; right: auto; bottom: auto;
+    width: auto; min-height: 100vh; min-height: 100dvh; margin: 0;
+    transform: none; max-width: none; max-height: none;
+    padding: clamp(72px, 12vh, 104px) clamp(22px, 6vw, 34px) clamp(104px, 18vh, 140px);
+    overflow: visible;
     -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 5%, #000 93%, transparent 100%);
             mask-image: linear-gradient(180deg, transparent 0, #000 5%, #000 93%, transparent 100%);
   }
@@ -1008,6 +1044,7 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
 .ef-col a:hover { color: #fff; }
 .ef-col a .ef-ic { width: 16px; height: 16px; flex: none; opacity: 0.62; }
 .ef-col a .ef-ic svg { width: 100%; height: 100%; }
+.ef-link-text { display: inline-block; }
 /* per-channel accent colors */
 .ef-call .ef-ic { color: #5b9dff; opacity: 1; }
 .ef-mail .ef-ic { color: #f5b544; opacity: 1; }
@@ -1027,6 +1064,7 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
 /* bottom — oversized brand sign-off */
 .ef-signoff {
   width: 100%; max-width: 1280px; margin: 0 auto;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: clamp(24px, 6vw, 96px);
   padding-bottom: clamp(20px, 3vh, 36px); border-bottom: 1px solid rgba(243,243,243,0.12);
 }
 .ef-mark {
@@ -1038,7 +1076,7 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
 .ef-mark-sub {
   font-family: var(--serif); font-style: italic;
   font-size: clamp(17px, 2.2vw, 32px); line-height: 1.16; color: rgba(243,243,243,0.62);
-  margin-top: clamp(8px, 1.4vh, 18px);
+  max-width: 13.5em; margin: 0 0 0.16em; text-align: right;
 }
 .ef-legal {
   width: 100%; max-width: 1280px; margin: 0 auto; margin-top: auto;
@@ -1050,7 +1088,9 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
 
 @media (max-width: 880px) {
   .ef-top { flex-direction: column; gap: 32px; }
+  .ef-signoff { flex-direction: column; align-items: flex-start; gap: 12px; }
   .ef-mark { font-size: clamp(68px, 26vw, 190px); }
+  .ef-mark-sub { text-align: left; margin: 0; }
 }
 
 /* ============================================================
@@ -1060,8 +1100,7 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
 html.cur-on .scroll-shell, html.cur-on .scroll-shell *,
 html.cur-on .loader, html.cur-on .loader *,
 html.cur-on .intro, html.cur-on .intro *,
-html.cur-on .role-nav-wrap, html.cur-on .role-nav-wrap *,
-html.cur-on .scroll-rail, html.cur-on .scroll-rail * { cursor: none !important; }
+html.cur-on .role-nav-wrap, html.cur-on .role-nav-wrap * { cursor: none !important; }
 
 /* display: contents (NOT a positioned/z-indexed wrapper) so the fixed ring
    blends directly against page content — a positioned wrapper would create an
@@ -1135,32 +1174,6 @@ html.cur-on .scroll-rail, html.cur-on .scroll-rail * { cursor: none !important; 
 @media (max-width: 680px) {
   .hero-layer .portal-entry, .sh-login { display: none !important; }
 }
-
-/* ============================================================
-   CUSTOM SCROLL RAIL
-   ============================================================ */
-.scroll-rail {
-  position: fixed; top: 0; right: 0;
-  width: 52px; height: 100dvh;
-  z-index: 60; opacity: 0; pointer-events: none;
-  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.scroll-rail[data-show="true"] { opacity: 1; pointer-events: auto; }
-
-.scroll-rail .sr-track {
-  position: absolute; top: 90px; bottom: 90px; right: 20px;
-  width: 2px; border-radius: 2px;
-  background: rgba(20, 20, 20, 0.14);
-}
-
-.scroll-rail .sr-thumb {
-  position: absolute; top: 90px; right: 17px;
-  width: 8px; height: 48px;
-  border-radius: 999px; background: #1c1c1c;
-  opacity: 0.5; will-change: transform;
-  transition: opacity 0.25s ease;
-}
-.scroll-rail[data-show="true"]:hover .sr-thumb { opacity: 0.85; }
 
 /* ============================================================
    HEADING PROXIMITY TINT WORD SPANS

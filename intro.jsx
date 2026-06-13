@@ -614,6 +614,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
     setClosing(false); setFocused(false);
     setEnterDir(null); setLeaving(null);          // fresh open uses the per-line reveal, not a slide
     setActive(i); setPhase("dive");
+    requestAnimationFrame(() => { if (diveRef.current) diveRef.current.scrollTop = 0; });
   };
 
   // switch roles from the nav (or arrows) with a directional page transition.
@@ -631,6 +632,7 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
     setEnterDir(enter);
     setLeaving({ from: i, exitDir });
     setActive(j);
+    if (diveRef.current) diveRef.current.scrollTo({ top: 0, behavior: "smooth" });
     transTimer.current = setTimeout(() => setLeaving(null), 540);
   };
 
@@ -831,7 +833,10 @@ function IntroStage({ holdMs, diveMs, maxSpin, hubCrossScale, heroReady }) {
           <span className="pe-go">Login<span className="pe-arr" aria-hidden="true">↗</span></span>
         </a>
         <WordCycler ready={heroReady} paused={introP > 0.02} />
-        <div className="scroll-cue"><span>Scroll to begin</span><span className="line" /></div>
+        <div className="scroll-cue">
+          <span>Scroll to begin</span>
+          <button className="line scroll-cue-line" type="button" aria-label="Begin intro" onClick={runAuto} />
+        </div>
       </div>
 
       {/* the building cross (hero + hold) */}

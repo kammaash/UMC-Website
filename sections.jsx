@@ -237,9 +237,9 @@ function ContactFooter() {
         <div className="ef-cols">
           <nav className="ef-col" aria-label="Explore">
             <h4>Explore</h4>
-            <a href="#intro" onClick={smoothTo("intro")}>How it works</a>
-            <a href="#faq" onClick={smoothTo("faq")}>FAQ</a>
-            <a href="#download" onClick={smoothTo("download")}>Get the app</a>
+            <a href="#intro" onClick={smoothTo("intro")}><span className="ef-link-text">How it works</span></a>
+            <a href="#faq" onClick={smoothTo("faq")}><span className="ef-link-text">FAQ</span></a>
+            <a href="#download" onClick={smoothTo("download")}><span className="ef-link-text">Get the app</span></a>
           </nav>
 
           <div className="ef-col ef-contact-col">
@@ -249,20 +249,20 @@ function ContactFooter() {
               <span className="ef-ic" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.1 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6A2 2 0 0 1 22 16.9z"/></svg>
               </span>
-              {copied === "phone" ? "Copied to clipboard" : "Call us"}
+              <span className="ef-link-text">{copied === "phone" ? "Copied to clipboard" : "Call us"}</span>
             </a>
             <a className={"ef-mail" + (copied === "email" ? " is-copied" : "")} href="mailto:admin@unifiedmedicalcare.com"
                onClick={copyToClipboard("email", "admin@unifiedmedicalcare.com")}>
               <span className="ef-ic" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
               </span>
-              {copied === "email" ? "Copied to clipboard" : "Email us"}
+              <span className="ef-link-text">{copied === "email" ? "Copied to clipboard" : "Email us"}</span>
             </a>
             <a className="ef-wa" href="https://wa.me/916304519244" target="_blank" rel="noopener">
               <span className="ef-ic" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.5A10 10 0 1 0 12 2zm0 18.1a8 8 0 0 1-4.1-1.1l-.3-.2-2.9.8.8-2.8-.2-.3A8 8 0 1 1 12 20.1zm4.4-6c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.5 6.5 0 0 1-1.9-1.2 7.3 7.3 0 0 1-1.3-1.7c-.1-.2 0-.4.1-.5l.4-.5.2-.3a.5.5 0 0 0 0-.5L9 6.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 2.8 2.8 0 0 0-.9 2.1 4.9 4.9 0 0 0 1 2.6 11 11 0 0 0 4.3 3.8c.6.3 1.1.4 1.5.5a3.4 3.4 0 0 0 1.5.1c.5-.1 1.4-.6 1.6-1.1s.2-1 .1-1.1z"/></svg>
               </span>
-              WhatsApp
+              <span className="ef-link-text">WhatsApp</span>
             </a>
           </div>
         </div>

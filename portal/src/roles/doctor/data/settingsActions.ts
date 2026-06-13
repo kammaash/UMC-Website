@@ -14,7 +14,8 @@ export interface SaveSettingsInput {
   clinicLongitude?: number | null
 }
 
-// Mirrors saveConsultationSettings: set(..., { merge: true }); clinicLocation only when both coords present.
+// Mirrors the phone app: set(..., { merge: true }); writes clinicLocation GeoPoint
+// only when both coordinates are present (the web picker supplies them).
 export async function saveConsultationSettings(input: SaveSettingsInput): Promise<void> {
   const uid = auth.currentUser?.uid
   if (!uid) throw new Error('Not signed in')

@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Page, PageHeader, SectionHeading, Card, Button, Field, Loading } from '../../../shared/design/primitives'
 import { Icon } from '../../../shared/design/icons'
 import { useConsultationSettings } from '../data/useConsultationSettings'
+import { useDoctorProfile } from '../data/useDoctorProfile'
 import { saveConsultationSettings, type SaveSettingsInput } from '../data/settingsActions'
+import { ClinicLocationPicker } from '../components/ClinicLocationPicker'
 
 /* Working days persist as full names in Firestore (mirrors the phone app's
  * ConsultationService convention); chips show 2-letter abbreviations. */
@@ -20,11 +22,15 @@ const SLOT_DURATIONS = [15, 30, 45, 60]
 
 export function SettingsPage() {
   const { data, loading } = useConsultationSettings()
+  const { data: doctorProfile } = useDoctorProfile() // for the picker's region fallback
 
   // Local form state, seeded from the loaded settings doc.
   const [accepting, setAccepting] = useState(true)
   const [clinicName, setClinicName] = useState('')
   const [clinicAddress, setClinicAddress] = useState('')
+  const [clinicLat, setClinicLat] = useState<number | null>(null)
+  const [clinicLng, setClinicLng] = useState<number | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [fee, setFee] = useState('')
   const [slotDuration, setSlotDuration] = useState(30)
   const [workingDays, setWorkingDays] = useState<string[]>([])
@@ -42,6 +48,8 @@ export function SettingsPage() {
       setAccepting(data.isAcceptingAppointments)
       setClinicName(data.clinicName)
       setClinicAddress(data.clinicAddress)
+      setClinicLat(data.clinicLocation ? data.clinicLocation.latitude : null)
+      setClinicLng(data.clinicLocation ? data.clinicLocation.longitude : null)
       setFee(data.fee ? String(data.fee) : '')
       setSlotDuration(data.slotDuration || 30)
       setWorkingDays(data.workingDays ?? [])
@@ -82,8 +90,8 @@ export function SettingsPage() {
         clinicName: clinicName.trim(),
         clinicAddress: clinicAddress.trim(),
         isAcceptingAppointments: accepting,
-        // Map/location picking is out of web scope — clinicLatitude/Longitude
-        // left undefined so the action skips writing clinicLocation.
+        clinicLatitude: clinicLat,
+        clinicLongitude: clinicLng,
       }
       await saveConsultationSettings(input)
       setMessage({ ok: true, text: 'Settings saved' })
@@ -143,14 +151,34 @@ export function SettingsPage() {
                 onChange={(e) => setClinicName(e.target.value)}
               />
             </Field>
-            {/* Map / location picking is out of web scope — address is free text only. */}
+            {/* Address is set by picking a location on the map (picker-only). */}
             <Field label="Clinic Address" error={clinicAddress.trim() === ''}>
-              <textarea
-                className="umc-textarea"
-                placeholder="Clinic address"
-                value={clinicAddress}
-                onChange={(e) => setClinicAddress(e.target.value)}
-              />
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    flex: 1, minWidth: 220, minHeight: 44, padding: '12px 14px',
+                    borderRadius: 'var(--r-sm)', background: 'var(--surface-sunken)',
+                    color: clinicAddress.trim() === '' ? 'var(--ink-faint)' : 'var(--ink)',
+                    fontSize: 14, lineHeight: 1.5,
+                    display: 'flex', flexDirection: 'column', gap: 8,
+                  }}
+                >
+                  <span>{clinicAddress.trim() === '' ? 'No location set yet' : clinicAddress}</span>
+                  {clinicLat != null && clinicLng != null && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--success-600)' }}>
+                      <Icon name="location" size={13} /> Location set
+                    </span>
+                  )}
+                </div>
+                <Button
+                  variant="ghost"
+                  sm
+                  icon={<Icon name="location" size={16} />}
+                  onClick={() => setPickerOpen(true)}
+                >
+                  {clinicAddress.trim() === '' ? 'Set clinic location' : 'Change location'}
+                </Button>
+              </div>
             </Field>
           </div>
         </Card>
@@ -263,6 +291,22 @@ export function SettingsPage() {
           )}
         </div>
       </div>
+
+      {pickerOpen && (
+        <ClinicLocationPicker
+          initialAddress={clinicAddress}
+          initialLat={clinicLat}
+          initialLng={clinicLng}
+          fallbackState={doctorProfile?.stateOfRegistration ?? null}
+          onClose={() => setPickerOpen(false)}
+          onConfirm={(r) => {
+            setClinicAddress(r.address)
+            setClinicLat(Number.isNaN(r.lat) ? null : r.lat)
+            setClinicLng(Number.isNaN(r.lng) ? null : r.lng)
+            setPickerOpen(false)
+          }}
+        />
+      )}
     </Page>
   )
 }

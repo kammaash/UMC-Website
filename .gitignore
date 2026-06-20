@@ -1,6 +1,3 @@
-# Local Netlify folder
-.netlify
-
 # Playwright MCP session artifacts
 .playwright-mcp/
 

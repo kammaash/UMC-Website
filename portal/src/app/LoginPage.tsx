@@ -6,8 +6,6 @@ import { useAuth } from '../shared/auth/AuthContext'
 
 /* ─── inline styles ─────────────────────────────────────────────────────── */
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Serif+Text:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
   .umc-login-root {
     --serif:      'DM Serif Text', 'DM Serif Display', Georgia, serif;
     --sans:       'Inter', system-ui, sans-serif;

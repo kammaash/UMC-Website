@@ -28,7 +28,7 @@ VITE_FB_MESSAGING_SENDER_ID=
 VITE_FB_APP_ID=
 ```
 
-Add `localhost` and the deploy domain (`portal.unifiedmedicalcare.com`) to Firebase Auth →
+Add `localhost` and the deploy domain (`unifiedmedicalcare.com`) to Firebase Auth →
 Settings → Authorized domains.
 
 ## Structure
@@ -47,6 +47,10 @@ route, with no changes to `shared/`.
 
 ## Deploy
 
-A dedicated Netlify site points at this repo with **base directory `portal/`**
-(`netlify.toml` builds to `dist/`, `public/_redirects` provides the SPA fallback), served at
-`portal.unifiedmedicalcare.com`. The marketing site at the repo root is a separate Netlify site.
+Deployment is automated via GitHub Actions (`.github/workflows/deploy-portal.yml`): on every
+push to `main`, the workflow builds `portal/` (`npm ci && npm run build`, with the `VITE_*`
+secrets injected as env), copies `portal/dist/` into the repo-root `member/` folder, and writes
+a `/login` entry that reuses the same bundle. Those folders are committed back to `main` and
+served by GitHub Pages (custom domain `unifiedmedicalcare.com`, see the root `CNAME`) at
+`unifiedmedicalcare.com/member` and `unifiedmedicalcare.com/login`. The marketing site is the
+repo root itself, served from the same Pages site.

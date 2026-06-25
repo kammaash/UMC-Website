@@ -7,7 +7,29 @@
 /* ── Page scaffold ─────────────────────────────────────────────── */
 .umc-page { max-width: 1040px; margin: 0 auto; padding-bottom: 64px; }
 
-.umc-page-head { margin-bottom: 28px; }
+/* ── Shell layout (DoctorShell sidebar + main) ──────────────────── */
+.umc-shell { display: grid; grid-template-columns: 256px 1fr; height: 100%; background: var(--surface); }
+.umc-shell-aside { padding: 28px 20px; }
+.umc-shell-main  { padding: 48px 56px; overflow-y: auto; }
+
+@media (max-width: 1099px) {
+  .umc-shell      { grid-template-columns: 200px 1fr; }
+  .umc-shell-main { padding: 40px 32px; }
+}
+@media (max-width: 819px) {
+  .umc-shell       { grid-template-columns: 64px 1fr; }
+  .umc-shell-aside { padding: 16px 6px; }
+  .umc-shell-main  { padding: 32px 20px; }
+  .umc-shell-label { display: none; }
+}
+
+.umc-page-head {
+  margin-bottom: 28px;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+}
+@media (max-width: 640px) {
+  .umc-page-head { flex-direction: column; align-items: flex-start; gap: 16px; }
+}
 .umc-eyebrow {
   font-family: var(--mono); font-size: 10px; font-weight: 700;
   letter-spacing: 0.26em; text-transform: uppercase; color: var(--ink-faint);
@@ -143,13 +165,60 @@
   border-radius: 999px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s var(--ease-out); }
 .umc-switch.on::after { transform: translateX(22px); }
 
+/* ── Status toggle tile (pressed-in) — port of StatusToggleTile ──── */
+/* Raised + neutral when off; tinted, accent-bordered and pressed-in when on. */
+.umc-tile {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  text-align: left; min-height: 92px; padding: 16px;
+  border-radius: 22px; cursor: pointer;
+  background: var(--card); border: 1px solid var(--line);
+  box-shadow: var(--neo-raised);
+  transition: background .24s var(--ease-out), border-color .24s var(--ease-out), box-shadow .24s var(--ease-out);
+}
+.umc-tile.on {
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: var(--neo-pressed);
+}
+.umc-tile-ico {
+  width: 48px; height: 48px; flex-shrink: 0; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent);
+  transition: background .24s var(--ease-out);
+}
+.umc-tile.on .umc-tile-ico { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.umc-tile-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.umc-tile-lab { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
+.umc-tile-desc { font-family: var(--sans); font-size: 13px; line-height: 1.3; color: var(--ink-soft); }
+.umc-tile-val { font-family: var(--serif); font-size: 18px; color: var(--ink); flex-shrink: 0; min-width: 36px; text-align: right; }
+.umc-tile.on .umc-tile-val { color: var(--accent); }
+
+/* ── Section card title + subtitle (Your Clinic section header) ──── */
+.umc-sec-h { font-family: var(--serif); font-size: 18px; font-weight: 400; color: var(--ink); margin: 0; }
+.umc-sec-s { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: color-mix(in srgb, var(--ink) 55%, transparent); margin: 6px 0 0; }
+.umc-sec-body { margin-top: 14px; }
+
+/* ── Save-changes pill (multi-state) — port of SaveChangesTile ───── */
+.umc-save { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.umc-save-hint { font-family: var(--sans); font-size: 13px; color: var(--ink-faint); }
+
 /* ── Tabs / segmented ──────────────────────────────────────────── */
-.umc-tabs { display: inline-flex; gap: 4px; padding: 5px; border-radius: var(--r-pill);
+.umc-tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 5px; border-radius: var(--r-pill);
   background: var(--surface); box-shadow: var(--neo-input); margin-bottom: 24px; }
 .umc-tab { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink-soft);
   border: none; background: transparent; border-radius: var(--r-pill); padding: 9px 18px; cursor: pointer;
   display: inline-flex; align-items: center; gap: 7px; transition: all .2s var(--ease-out); }
 .umc-tab.on { background: var(--ink); color: var(--surface); box-shadow: var(--neo-raised); }
+
+/* ── Inset row tile (pressed-in list row inside a section card) ──── */
+.umc-rowtile {
+  padding: 14px 16px; border-radius: var(--r-lg);
+  background: var(--surface-sunken); border: 1px solid var(--line-2);
+  box-shadow: var(--neo-input);
+}
+.umc-rowtile.pressable { cursor: pointer; transition: box-shadow .2s var(--ease-out), transform .18s var(--ease-out); }
+.umc-rowtile.pressable:hover { box-shadow: var(--neo-input-active); }
+.umc-rowtile.pressable:active { transform: scale(.997); box-shadow: var(--neo-pressed); }
 
 /* ── Detail rows (expandable cards) ────────────────────────────── */
 .umc-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 8px 0; }
@@ -214,4 +283,7 @@
 .umc-divider { height: 1px; background: var(--line); border: none; margin: 0; }
 @media (max-width: 880px) {
   .umc-grid.c3, .umc-grid.c4 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
+  .umc-grid.c2, .umc-grid.c3, .umc-grid.c4 { grid-template-columns: 1fr; }
 }

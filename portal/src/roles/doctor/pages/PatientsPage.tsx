@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  Page, PageHeader, SectionHeading, Card, Button, EmptyState, Loading,
+  Page, PageHeader, Section, Card, Button, EmptyState, Loading,
 } from '../../../shared/design/primitives'
 import { Icon } from '../../../shared/design/icons'
 import { formatTimestamp } from './format'
@@ -104,8 +104,13 @@ export function PatientsPage() {
               placeholder="Search patients"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              style={{ marginBottom: 20 }}
             />
 
+            <Section
+              title="All patients"
+              subtitle={filtered.length === 1 ? '1 patient' : `${filtered.length} patients`}
+            >
             {filtered.length === 0
               ? (
                 <EmptyState
@@ -115,9 +120,9 @@ export function PatientsPage() {
                 />
               )
               : (
-                <div className="umc-stack" style={{ marginTop: 20 }}>
+                <div className="umc-stack">
                   {filtered.map((p) => (
-                    <Card key={p.id} pressable onClick={() => setSelectedId(p.id)}>
+                    <div key={p.id} className="umc-rowtile pressable" role="button" tabIndex={0} onClick={() => setSelectedId(p.id)}>
                       <div className="umc-flex">
                         <Avatar name={p.name} size={44} />
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -144,10 +149,11 @@ export function PatientsPage() {
                           <Icon name="chevronRight" size={22} />
                         </span>
                       </div>
-                    </Card>
+                    </div>
                   ))}
                 </div>
               )}
+            </Section>
           </>
         )}
     </Page>
@@ -207,8 +213,7 @@ function PatientDetail({ patient, onBack }: { patient: CreatedPatient; onBack: (
       </div>
 
       {/* Notes */}
-      <div style={{ marginTop: 28 }}>
-        <SectionHeading>Notes</SectionHeading>
+      <Section title="Notes" subtitle="Diagnoses, observations, and follow-ups." style={{ marginTop: 16 }}>
         {notesLoading
           ? <Loading />
           : noteCount === 0
@@ -216,7 +221,7 @@ function PatientDetail({ patient, onBack }: { patient: CreatedPatient; onBack: (
             : (
               <div className="umc-stack">
                 {notes.map((n) => (
-                  <Card key={n.id} section>
+                  <div key={n.id} className="umc-rowtile">
                     {n.diagnosis && (
                       <div style={{
                         fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600, color: 'var(--ink)',
@@ -246,11 +251,11 @@ function PatientDetail({ patient, onBack }: { patient: CreatedPatient; onBack: (
                         {formatTimestamp(n.createdAt)}
                       </div>
                     )}
-                  </Card>
+                  </div>
                 ))}
               </div>
             )}
-      </div>
+      </Section>
 
       {/*
         Deferred to a later phase (do NOT build here):

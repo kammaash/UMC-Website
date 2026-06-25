@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Page, PageHeader, SectionHeading, Card, Button, Field, Loading } from '../../../shared/design/primitives'
+import { Page, PageHeader, Section, StatusToggleTile, Button, Field, Loading } from '../../../shared/design/primitives'
 import { Icon } from '../../../shared/design/icons'
 import { useConsultationSettings } from '../data/useConsultationSettings'
 import { useDoctorProfile } from '../data/useDoctorProfile'
@@ -110,39 +110,30 @@ export function SettingsPage() {
 
       <div className="umc-stack" style={{ gap: 20, maxWidth: 760 }}>
         {/* 1. Availability */}
-        <Card section>
-          <SectionHeading>Availability</SectionHeading>
-          <p className="umc-subtitle" style={{ marginTop: 6 }}>
-            Control whether patients can book with you right now.
-          </p>
-          <div className="umc-flex" style={{ justifyContent: 'space-between', marginTop: 14 }}>
-            <div>
-              <div className="umc-row-lab" style={{ fontWeight: 600 }}>Accepting Appointments</div>
-              <p className="umc-subtitle" style={{ marginTop: 4 }}>
-                {accepting
-                  ? 'Patients can currently book consultations with you.'
-                  : 'Appointments are paused. Toggle to start accepting bookings.'}
-              </p>
-            </div>
-            <div className="umc-flex" style={{ gap: 10 }}>
-              <span className="umc-row-val">{accepting ? 'Yes' : 'No'}</span>
-              <button
-                type="button"
-                aria-label="Toggle accepting appointments"
-                className={`umc-switch${accepting ? ' on' : ''}`}
-                onClick={() => setAccepting((v) => !v)}
-              />
-            </div>
-          </div>
-        </Card>
+        <Section
+          title="Availability"
+          subtitle="Control whether patients can book with you right now."
+        >
+          <StatusToggleTile
+            label="Accepting Appointments"
+            value={accepting}
+            onToggle={() => setAccepting((v) => !v)}
+            activeDescription="Patients can currently book consultations with you."
+            inactiveDescription="Appointments are paused. Toggle to start accepting bookings."
+            activeLabel="Yes"
+            inactiveLabel="No"
+            activeIcon={<Icon name="eventAvailable" size={24} />}
+            inactiveIcon={<Icon name="eventBusy" size={24} />}
+            accent="#43A047"
+          />
+        </Section>
 
         {/* 2. Clinic Details */}
-        <Card section>
-          <SectionHeading>Clinic Details</SectionHeading>
-          <p className="umc-subtitle" style={{ marginTop: 6 }}>
-            Shown to patients when they book and view appointments.
-          </p>
-          <div className="umc-stack" style={{ marginTop: 14 }}>
+        <Section
+          title="Clinic Details"
+          subtitle="Shown to patients when they book and view appointments."
+        >
+          <div className="umc-stack">
             <Field label="Clinic Name" error={clinicName.trim() === ''}>
               <input
                 className="umc-input"
@@ -181,15 +172,14 @@ export function SettingsPage() {
               </div>
             </Field>
           </div>
-        </Card>
+        </Section>
 
         {/* 3. Consultation Settings */}
-        <Card section>
-          <SectionHeading>Consultation Settings</SectionHeading>
-          <p className="umc-subtitle" style={{ marginTop: 6 }}>
-            Set your fee and how long each appointment slot lasts.
-          </p>
-          <div className="umc-grid c2" style={{ marginTop: 14 }}>
+        <Section
+          title="Consultation Settings"
+          subtitle="Set your fee and how long each appointment slot lasts."
+        >
+          <div className="umc-grid c2">
             <Field label="Doctor Fee" error={!(feeNum > 0)}>
               <input
                 className="umc-input"
@@ -212,15 +202,13 @@ export function SettingsPage() {
               </select>
             </Field>
           </div>
-        </Card>
+        </Section>
 
         {/* 4. Schedule */}
-        <Card section>
-          <SectionHeading>Schedule</SectionHeading>
-          <p className="umc-subtitle" style={{ marginTop: 6 }}>
-            Choose the days and hours when you take consultations.
-          </p>
-
+        <Section
+          title="Schedule"
+          subtitle="Choose the days and hours when you take consultations."
+        >
           <Field label="Working Days" error={workingDays.length === 0}>
             <div className="umc-flex" style={{ flexWrap: 'wrap', gap: 8 }}>
               <button
@@ -264,10 +252,10 @@ export function SettingsPage() {
               />
             </Field>
           </div>
-        </Card>
+        </Section>
 
-        {/* 5. Save */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        {/* 5. Save — multi-state pill, mirrors the app's SaveChangesTile */}
+        <div className="umc-save">
           <Button
             pill
             loading={saving}
@@ -275,10 +263,10 @@ export function SettingsPage() {
             icon={<Icon name="check" size={18} />}
             onClick={handleSave}
           >
-            Save Changes
+            {saving ? 'Saving Changes' : 'Save Changes'}
           </Button>
-          {!canSave && (
-            <span className="umc-subtitle">Complete required fields</span>
+          {!canSave && !saving && (
+            <span className="umc-save-hint">Complete required fields to save</span>
           )}
           {message && (
             <span

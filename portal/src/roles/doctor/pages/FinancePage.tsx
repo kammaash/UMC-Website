@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Page, PageHeader, SectionHeading, Card, Button, Stat, Row,
+  Page, PageHeader, Section, Card, Button, Stat, Row,
   EmptyState, Loading, Money,
 } from '../../../shared/design/primitives'
 import { Icon } from '../../../shared/design/icons'
@@ -63,31 +63,28 @@ function RevenueTab() {
 
   return (
     <>
-      <Card>
-        <div className="umc-grid c2">
-          <Stat
-            icon={<Icon name="payments" size={15} />}
-            accent={TEAL}
-            value={<Money value={summary.data?.totalRevenue ?? 0} />}
-            label="Revenue"
-          />
-          <Stat
-            icon={<Icon name="checkCircle" size={15} />}
-            accent={TEAL}
-            value={summary.data?.completedOrders ?? 0}
-            label="Completed"
-          />
-        </div>
+      <Card section className="umc-grid c2">
+        <Stat
+          icon={<Icon name="payments" size={15} />}
+          accent={TEAL}
+          value={<Money value={summary.data?.totalRevenue ?? 0} />}
+          label="Revenue"
+        />
+        <Stat
+          icon={<Icon name="checkCircle" size={15} />}
+          accent={TEAL}
+          value={summary.data?.completedOrders ?? 0}
+          label="Completed"
+        />
       </Card>
 
-      {txns.data.length === 0 ? (
-        <EmptyState
-          icon={<Icon name="paymentsOutline" size={64} />}
-          title="No completed payouts yet"
-        />
-      ) : (
-        <>
-          <SectionHeading>Completed Consultations</SectionHeading>
+      <Section title="Completed Consultations" subtitle="Payouts released to you." style={{ marginTop: 20 }}>
+        {txns.data.length === 0 ? (
+          <EmptyState
+            icon={<Icon name="paymentsOutline" size={64} />}
+            title="No completed payouts yet"
+          />
+        ) : (
           <div className="umc-stack">
             {txns.data.map((t) => (
               <TransactionCard
@@ -98,8 +95,8 @@ function RevenueTab() {
               />
             ))}
           </div>
-        </>
-      )}
+        )}
+      </Section>
     </>
   )
 }
@@ -109,7 +106,7 @@ function TransactionCard({ t, open, onToggle }: { t: FinanceTransaction; open: b
   const amountColor = isCompensation ? ORANGE : TEAL
 
   return (
-    <Card pressable onClick={onToggle}>
+    <div className="umc-rowtile pressable" role="button" tabIndex={0} onClick={onToggle}>
       <div className="umc-row" style={{ padding: 0, alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
@@ -133,7 +130,7 @@ function TransactionCard({ t, open, onToggle }: { t: FinanceTransaction; open: b
           <Row label="You Received" value={<Money value={t.netAmount} />} valueColor={TEAL} />
         </>
       )}
-    </Card>
+    </div>
   )
 }
 
@@ -158,28 +155,28 @@ function PendingTab() {
 
   return (
     <>
-      <Card>
-        <div className="umc-grid c2">
-          <Stat
-            icon={<Icon name="hourglass" size={15} />}
-            accent={ORANGE_STAT}
-            value={<Money value={s?.outstandingPenalty ?? 0} />}
-            label="Outstanding"
-          />
-          <Stat
-            icon={<Icon name="receipt" size={15} />}
-            accent={ORANGE_STAT}
-            value={inProgress}
-            label="In progress"
-          />
-        </div>
+      <Card section className="umc-grid c2">
+        <Stat
+          icon={<Icon name="hourglass" size={15} />}
+          accent={ORANGE_STAT}
+          value={<Money value={s?.outstandingPenalty ?? 0} />}
+          label="Outstanding"
+        />
+        <Stat
+          icon={<Icon name="receipt" size={15} />}
+          accent={ORANGE_STAT}
+          value={inProgress}
+          label="In progress"
+        />
       </Card>
 
-      <EmptyState
-        icon={<Icon name="hourglass" size={64} />}
-        title="No pending items to show"
-        subtitle="Pending escrow detail arrives in a later phase."
-      />
+      <Section title="Held Payouts" subtitle="Funds awaiting release." style={{ marginTop: 20 }}>
+        <EmptyState
+          icon={<Icon name="hourglass" size={64} />}
+          title="No pending items to show"
+          subtitle="Pending escrow detail arrives in a later phase."
+        />
+      </Section>
     </>
   )
 }
@@ -210,33 +207,32 @@ function PenaltiesTab() {
 
   return (
     <>
-      <Card>
-        <div className="umc-grid c2">
-          <Stat
-            icon={<Icon name="warning" size={15} />}
-            accent={outstanding > 0 ? RED : GREEN}
-            value={<Money value={outstanding} />}
-            label="Outstanding"
-          />
-          <Stat
-            icon={<Icon name="receipt" size={15} />}
-            accent={RED}
-            value={pending.data.length}
-            label="Penalties"
-          />
-        </div>
+      <Card section className="umc-grid c2">
+        <Stat
+          icon={<Icon name="warning" size={15} />}
+          accent={outstanding > 0 ? RED : GREEN}
+          value={<Money value={outstanding} />}
+          label="Outstanding"
+        />
+        <Stat
+          icon={<Icon name="receipt" size={15} />}
+          accent={RED}
+          value={pending.data.length}
+          label="Penalties"
+        />
       </Card>
 
       {pending.data.length === 0 && completed.data.length === 0 ? (
-        <EmptyState
-          icon={<Icon name="checkCircle" size={64} />}
-          title="No penalties on record"
-        />
+        <Section title="Penalty Record" subtitle="Cancellation penalties and settlements." style={{ marginTop: 20 }}>
+          <EmptyState
+            icon={<Icon name="checkCircle" size={64} />}
+            title="No penalties on record"
+          />
+        </Section>
       ) : (
         <>
           {pending.data.length > 0 && (
-            <>
-              <SectionHeading>Outstanding Penalties</SectionHeading>
+            <Section title="Outstanding Penalties" subtitle="Settle these to release held payouts." style={{ marginTop: 20 }}>
               <div className="umc-stack">
                 {pending.data.map((p) => (
                   <PenaltyCard
@@ -250,12 +246,11 @@ function PenaltiesTab() {
                   />
                 ))}
               </div>
-            </>
+            </Section>
           )}
 
           {completed.data.length > 0 && (
-            <>
-              <SectionHeading muted>Settled Penalties</SectionHeading>
+            <Section title="Settled Penalties" subtitle="Already paid." style={{ marginTop: 20 }}>
               <div className="umc-stack">
                 {completed.data.map((p) => (
                   <PenaltyCard
@@ -267,7 +262,7 @@ function PenaltiesTab() {
                   />
                 ))}
               </div>
-            </>
+            </Section>
           )}
         </>
       )}
@@ -287,7 +282,7 @@ function PenaltyCard({ p, settled, open, onToggle, busy, onSettle }: {
   const amountColor = settled ? 'var(--ink-faint)' : RED
 
   return (
-    <Card pressable onClick={onToggle} style={settled ? { opacity: 0.6 } : undefined}>
+    <div className="umc-rowtile pressable" role="button" tabIndex={0} onClick={onToggle} style={settled ? { opacity: 0.6 } : undefined}>
       <div className="umc-row" style={{ padding: 0, alignItems: 'flex-start' }}>
         <div>
           <div
@@ -328,6 +323,6 @@ function PenaltyCard({ p, settled, open, onToggle, busy, onSettle }: {
           )}
         </>
       )}
-    </Card>
+    </div>
   )
 }

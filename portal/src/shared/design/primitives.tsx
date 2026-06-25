@@ -9,7 +9,7 @@ export function PageHeader({ eyebrow, title, subtitle, action, large }: {
   eyebrow?: string; title: string; subtitle?: string; action?: ReactNode; large?: boolean
 }) {
   return (
-    <div className="umc-page-head" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
+    <div className="umc-page-head">
       <div>
         {eyebrow && <p className="umc-eyebrow">{eyebrow}</p>}
         <h1 className={`umc-title${large ? ' lg' : ''}`}>{title}</h1>
@@ -22,6 +22,53 @@ export function PageHeader({ eyebrow, title, subtitle, action, large }: {
 
 export function SectionHeading({ children, muted }: { children: ReactNode; muted?: boolean }) {
   return <h2 className={`umc-section-h${muted ? ' muted' : ''}`}>{children}</h2>
+}
+
+/* ── Section card (titled, with subtitle) — the "Your Clinic" section block ─ */
+export function Section({ title, subtitle, action, children, style }: {
+  title: string; subtitle?: string; action?: ReactNode; children: ReactNode; style?: CSSProperties
+}) {
+  return (
+    <div className="umc-card section" style={style}>
+      <div className="umc-flex" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <div>
+          <h2 className="umc-sec-h">{title}</h2>
+          {subtitle && <p className="umc-sec-s">{subtitle}</p>}
+        </div>
+        {action}
+      </div>
+      <div className="umc-sec-body">{children}</div>
+    </div>
+  )
+}
+
+/* ── Status toggle tile (pressed-in) — port of the app's StatusToggleTile ── */
+export function StatusToggleTile({
+  label, value, onToggle, activeDescription, inactiveDescription,
+  activeLabel = 'On', inactiveLabel = 'Off', activeIcon, inactiveIcon, accent = '#43A047',
+}: {
+  label: string; value: boolean; onToggle: () => void
+  activeDescription?: string; inactiveDescription?: string
+  activeLabel?: string; inactiveLabel?: string
+  activeIcon?: ReactNode; inactiveIcon?: ReactNode; accent?: string
+}) {
+  const desc = value ? activeDescription : (inactiveDescription ?? activeDescription)
+  return (
+    <button
+      type="button"
+      aria-pressed={value}
+      className={`umc-tile${value ? ' on' : ''}`}
+      style={{ ['--accent' as string]: accent }}
+      onClick={onToggle}
+    >
+      <span className="umc-tile-ico">{value ? activeIcon : inactiveIcon}</span>
+      <span className="umc-tile-body">
+        <span className="umc-tile-lab">{label}</span>
+        {desc && <span className="umc-tile-desc">{desc}</span>}
+      </span>
+      <span className="umc-tile-val">{value ? activeLabel : inactiveLabel}</span>
+    </button>
+  )
 }
 
 /* ── Card ──────────────────────────────────────────────────────── */

@@ -1,4 +1,9 @@
-import { useEffect, useRef, useCallback, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useEffect, useRef, useCallback, useState,
+  type PointerEvent as ReactPointerEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ClipboardEvent as ReactClipboardEvent,
+} from 'react'
 import { useLocation } from 'react-router-dom'
 import { RecaptchaVerifier } from 'firebase/auth'
 import { auth } from '../shared/lib/firebase'
@@ -296,6 +301,47 @@ const css = `
     background: rgba(255,255,255,0.06);
     border-color: rgba(230,230,230,0.24) !important;
   }
+
+  /* 6-box OTP input — single digit per box, centred */
+  .umc-otp-boxes { display: flex; gap: 8px; justify-content: center; }
+  .umc-otp-box {
+    width: 40px; height: 50px; padding: 0; text-align: center;
+    background: #0b0b0b; border: 1px solid rgba(230,230,230,0.12);
+    border-radius: 12px;
+    font-family: var(--mono); font-size: 20px; font-weight: 600;
+    color: #fff; caret-color: #34C759;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+  }
+  .umc-otp-box.is-filled { border-color: rgba(52,199,89,0.35); }
+  .umc-otp-box:focus {
+    border-color: rgba(52,199,89,0.6);
+    box-shadow: 0 0 0 3px rgba(52,199,89,0.14);
+  }
+
+  /* in-popup error message (matches the marketing-site error tone) */
+  .umc-otp-error {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    letter-spacing: 0.04em; line-height: 1.5; text-transform: uppercase;
+    text-align: center; color: #ff6b60;
+    background: rgba(255,69,58,0.09);
+    border: 1px solid rgba(255,69,58,0.34);
+    border-radius: 10px; padding: 11px 12px; margin: -4px 0 0;
+  }
+
+  /* loading spinner inside the submit button — stay bright while spinning */
+  .umc-otp-submit.is-loading,
+  .umc-otp-submit.is-loading:hover {
+    opacity: 1 !important; transform: none !important; cursor: default;
+  }
+  .umc-spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(4,40,14,0.3); border-top-color: #04280e;
+    border-radius: 50%; animation: umc-spin 0.6s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes umc-spin { to { transform: rotate(360deg); } }
+
   #umc-recaptcha { display: none; }
 
   /* custom cursor */
@@ -407,21 +453,95 @@ const css = `
 `
 
 /* ─── phone OTP modal ────────────────────────────────────────────────────── */
+// Maps a Firebase auth error to a short, human-readable reason shown inside the
+// phone popup. Falls back to a generic line for anything unmapped.
+function firebaseErrCode(err: unknown): string {
+  return err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : ''
+}
+function phoneAuthMessage(err: unknown): string {
+  switch (firebaseErrCode(err)) {
+    case 'auth/invalid-phone-number':
+    case 'auth/missing-phone-number':  return 'That phone number looks invalid. Check it and try again.'
+    case 'auth/too-many-requests':     return 'Too many attempts. Please wait a bit, then try again.'
+    case 'auth/quota-exceeded':        return 'SMS limit reached. Please try again later.'
+    case 'auth/captcha-check-failed':
+    case 'auth/invalid-app-credential': return 'Verification failed. Please try again.'
+    case 'auth/unauthorized-domain':   return 'This site isn’t authorized for phone sign-in.'
+    default:                           return 'We couldn’t send a code to that number. Check it and try again.'
+  }
+}
+function otpAuthMessage(err: unknown): string {
+  switch (firebaseErrCode(err)) {
+    case 'auth/invalid-verification-code': return 'That code isn’t right. Please re-enter it.'
+    case 'auth/code-expired':              return 'That code expired. Request a new one.'
+    case 'auth/missing-verification-code': return 'Please enter the 6-digit code.'
+    default:                               return 'We couldn’t verify that code. Please try again.'
+  }
+}
+
 interface OtpModalProps {
-  onConfirm: (code: string) => void
+  // Return a human-readable error message to show in the popup, or null on success.
+  onConfirm: (code: string) => Promise<string | null>
   onCancel: () => void
   step: 'phone' | 'otp'
-  onSendOtp: (phone: string) => void
+  onSendOtp: (phone: string) => Promise<string | null>
 }
 
 function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps) {
   const isPhone = step === 'phone'
-  const [val, setVal] = useState('')
-  const ready = isPhone ? val.length === 10 : val.length === 6
+  const [val, setVal] = useState('')                              // phone (10 digits)
+  const [digits, setDigits] = useState(['', '', '', '', '', ''])  // otp (6 boxes)
+  const [submitting, setSubmitting] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const boxesRef = useRef<Array<HTMLInputElement | null>>([])
 
-  const submit = () => {
-    if (!ready) return
-    if (isPhone) onSendOtp('+91' + val); else onConfirm(val)
+  const code = digits.join('')
+  const ready = isPhone ? val.length === 10 : code.length === 6
+
+  const submit = async () => {
+    if (!ready || submitting) return
+    setErr(null)
+    setSubmitting(true)
+    const msg = isPhone ? await onSendOtp('+91' + val) : await onConfirm(code)
+    if (msg) {
+      // Failure — keep the popup open, surface the reason, let them retry.
+      setErr(msg)
+      setSubmitting(false)
+      if (!isPhone) { setDigits(['', '', '', '', '', '']); boxesRef.current[0]?.focus() }
+    }
+    // Success — the parent advances the step (or closes the modal), which unmounts
+    // this instance; leave the spinner running through that transition.
+  }
+
+  const focusBox = (i: number) => boxesRef.current[Math.max(0, Math.min(5, i))]?.focus()
+  const onBoxChange = (i: number, raw: string) => {
+    setErr(null)
+    const clean = raw.replace(/\D/g, '')
+    const next = [...digits]
+    if (!clean) { next[i] = ''; setDigits(next); return }
+    let idx = i
+    for (const ch of clean) { if (idx > 5) break; next[idx] = ch; idx++ }
+    setDigits(next)
+    focusBox(Math.min(idx, 5))
+  }
+  const onBoxKeyDown = (i: number, e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { submit(); return }
+    if (e.key === 'Backspace') {
+      e.preventDefault()
+      const next = [...digits]
+      if (next[i]) { next[i] = ''; setDigits(next) }
+      else if (i > 0) { next[i - 1] = ''; setDigits(next); focusBox(i - 1) }
+    } else if (e.key === 'ArrowLeft') { e.preventDefault(); focusBox(i - 1) }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); focusBox(i + 1) }
+  }
+  const onBoxPaste = (e: ReactClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (!text) return
+    const next = ['', '', '', '', '', '']
+    for (let k = 0; k < text.length; k++) next[k] = text[k]
+    setErr(null); setDigits(next)
+    focusBox(Math.min(text.length, 5))
   }
 
   return (
@@ -440,25 +560,41 @@ function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps) {
               type="tel" inputMode="numeric"
               maxLength={10} autoFocus
               value={val}
-              onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              onChange={(e) => { setErr(null); setVal(e.target.value.replace(/\D/g, '').slice(0, 10)) }}
               onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
             />
           </div>
         ) : (
-          <input
-            className="umc-otp-input"
-            type="text" inputMode="numeric"
-            placeholder="000000" maxLength={6} autoFocus
-            value={val}
-            onChange={(e) => setVal(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-          />
+          <div className="umc-otp-boxes">
+            {digits.map((d, i) => (
+              <input
+                key={i}
+                ref={(el) => { boxesRef.current[i] = el }}
+                className={`umc-otp-box ${d ? 'is-filled' : ''}`}
+                type="text" inputMode="numeric" autoComplete="one-time-code"
+                maxLength={1} autoFocus={i === 0}
+                value={d}
+                onChange={(e) => onBoxChange(i, e.target.value)}
+                onKeyDown={(e) => onBoxKeyDown(i, e)}
+                onPaste={onBoxPaste}
+                onFocus={(e) => e.target.select()}
+              />
+            ))}
+          </div>
         )}
+
+        {err && <div className="umc-otp-error" role="alert">{err}</div>}
 
         <div className="umc-otp-row">
           <button className="umc-otp-btn umc-otp-cancel" onClick={onCancel}>Cancel</button>
-          <button className="umc-otp-btn umc-otp-submit" disabled={!ready} onClick={submit}>
-            {isPhone ? 'Send code →' : 'Verify →'}
+          <button
+            className={`umc-otp-btn umc-otp-submit${submitting ? ' is-loading' : ''}`}
+            disabled={!ready || submitting}
+            onClick={submit}
+          >
+            {submitting
+              ? <span className="umc-spinner" aria-hidden="true" />
+              : (isPhone ? 'Send code →' : 'Verify →')}
           </button>
         </div>
       </div>
@@ -534,7 +670,7 @@ function SuccessOverlay({ rect }: { rect: DOMRect | null }) {
 
 /* ─── main page ──────────────────────────────────────────────────────────── */
 export function LoginPage() {
-  const { status, signInWithGoogle, signInWithApple, signInWithPhone, logout } = useAuth()
+  const { status, signInWithGoogle, signInWithApple, signInWithPhone, logout, isRegisteredUser, rejectCurrentUser } = useAuth()
   const location = useLocation()
 
   // Wrong-role / no-portal accounts are bounced back here (?e=wrong-role) with
@@ -562,6 +698,9 @@ export function LoginPage() {
   const [otpStep, setOtpStep] = useState<'idle' | 'phone' | 'otp'>('idle')
   const confirmRef = useRef<import('firebase/auth').ConfirmationResult | null>(null)
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
+  // True while an OTP just verified and we're checking the account is a registered
+  // member — suppresses the success animation so the gate (not the effect) decides.
+  const gatingRef = useRef(false)
 
   // Green success animation: the originating button's rect (for the FLIP morph),
   // captured at click time and replayed once sign-in completes.
@@ -581,6 +720,9 @@ export function LoginPage() {
 
   useEffect(() => {
     if (status !== 'signed-in') return
+    // Phone sign-in runs its own existing-member gate in handleOtpConfirm; don't
+    // let this effect fire the success animation until that gate has decided.
+    if (gatingRef.current) return
     // A wrong-role account that bounced back here is still signed in — sign it
     // out so the visitor stays on /login (with the banner) and can retry.
     if (wrongRole) { logout(); return }
@@ -702,26 +844,53 @@ export function LoginPage() {
     setAuthError(null); setOtpStep('phone')
   }
 
-  const handleSendOtp = async (phone: string) => {
+  const handleSendOtp = async (phone: string): Promise<string | null> => {
     if (!recaptchaRef.current) {
       recaptchaRef.current = new RecaptchaVerifier(auth, 'umc-recaptcha', { size: 'invisible' })
     }
     try {
       confirmRef.current = await signInWithPhone(phone, recaptchaRef.current)
       setOtpStep('otp')
+      return null
     } catch (err) {
       console.error('Phone sign-in error:', err)
-      setOtpStep('idle')
-      setAuthError("Sign-in didn't complete. Please try again.")
+      // Reset the verifier so the next attempt gets a fresh reCAPTCHA challenge
+      // (a consumed/failed one can't be reused on the same hidden container).
+      try { recaptchaRef.current?.clear() } catch { /* ignore */ }
+      recaptchaRef.current = null
+      return phoneAuthMessage(err)
     }
   }
 
-  const handleOtpConfirm = async (code: string) => {
+  const handleOtpConfirm = async (code: string): Promise<string | null> => {
+    // Set the gate flag BEFORE confirm() so the success effect can't fire in the
+    // window between sign-in propagating and the membership check completing.
+    gatingRef.current = true
+    let cred
     try {
-      await confirmRef.current?.confirm(code)
-      setOtpStep('idle')
+      cred = await confirmRef.current?.confirm(code)
     } catch (err) {
       console.error('OTP confirm error:', err)
+      gatingRef.current = false
+      return otpAuthMessage(err)   // wrong / expired code — nothing to undo
+    }
+    // Code was correct → the user is now signed in. The portal is sign-in only,
+    // so reject any number that isn't already a registered member.
+    try {
+      const uid = cred?.user?.uid
+      if (!uid || !(await isRegisteredUser(uid))) {
+        await rejectCurrentUser()
+        return 'No account found for that number. Please sign up in the UMC app first.'
+      }
+      setOtpStep('idle')
+      setSuccess({ rect: originRef.current })
+      return null
+    } catch (err) {
+      console.error('Membership check failed:', err)
+      await rejectCurrentUser()   // fail-closed — don't leave them signed in
+      return 'Could not verify your account. Please try again.'
+    } finally {
+      gatingRef.current = false
     }
   }
 

@@ -15,7 +15,7 @@
  */
 import { useMemo, useState } from 'react'
 import {
-  Page, PageHeader, Card, Button, Badge, EmptyState, Loading, Money, Modal,
+  Page, PageHeader, Section, Button, Badge, EmptyState, Loading, Money, Modal,
 } from '../../../shared/design/primitives'
 import { Icon } from '../../../shared/design/icons'
 import {
@@ -153,7 +153,7 @@ export function SchedulePage() {
   function ApptCard({ a }: { a: Appointment }) {
     const meta = statusMeta(a.status)
     return (
-      <Card pressable onClick={() => setDetail(a)}>
+      <div className="umc-rowtile pressable" role="button" tabIndex={0} onClick={() => setDetail(a)}>
         <div className="umc-flex" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <span style={{ fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
             {a.patientName || 'Patient'}
@@ -180,7 +180,7 @@ export function SchedulePage() {
         )}
 
         <ActionButtons a={a} />
-      </Card>
+      </div>
     )
   }
 
@@ -208,12 +208,19 @@ export function SchedulePage() {
 
       {loading ? (
         <Loading />
-      ) : list.length === 0 ? (
-        <EmptyState icon={<Icon name="calendar" size={64} />} title="No appointments here" />
       ) : (
-        <div className="umc-stack">
-          {list.map((a) => <ApptCard key={a.id} a={a} />)}
-        </div>
+        <Section
+          title={TABS.find((t) => t.key === tab)!.label}
+          subtitle={list.length === 1 ? '1 appointment' : `${list.length} appointments`}
+        >
+          {list.length === 0 ? (
+            <EmptyState icon={<Icon name="calendar" size={64} />} title="No appointments here" />
+          ) : (
+            <div className="umc-stack">
+              {list.map((a) => <ApptCard key={a.id} a={a} />)}
+            </div>
+          )}
+        </Section>
       )}
 
       {/* ── Detail modal ── */}

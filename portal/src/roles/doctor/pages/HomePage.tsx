@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Page, PageHeader, SectionHeading, Card, Button, Badge, Stat,
+  Page, PageHeader, Section, Card, Button, Badge, Stat,
   EmptyState, Loading, Money,
 } from '../../../shared/design/primitives'
 import { Icon } from '../../../shared/design/icons'
@@ -75,7 +75,7 @@ export function HomePage() {
       />
 
       {/* ── Summary tiles ─────────────────────────────────────────── */}
-      <Card className="umc-grid c3">
+      <Card section className="umc-grid c3">
         <Stat
           icon={<Icon name="eventAvailable" />}
           value={appts.loading ? '—' : apptCount}
@@ -125,7 +125,7 @@ export function HomePage() {
       )}
 
       {/* ── Today's schedule ──────────────────────────────────────── */}
-      <SectionHeading>Today's schedule</SectionHeading>
+      <Section title="Today's schedule" subtitle="Confirmed and upcoming visits, in time order." style={{ marginTop: 8 }}>
       {appts.loading ? (
         <Loading />
       ) : schedule.length === 0 ? (
@@ -139,7 +139,7 @@ export function HomePage() {
           {schedule.map((a) => {
             const meta = statusMeta(a.status)
             return (
-              <Card key={a.id} flat style={{ padding: 16 }}>
+              <div key={a.id} className="umc-rowtile">
                 <div className="umc-flex" style={{ justifyContent: 'space-between' }}>
                   <div className="umc-flex" style={{ minWidth: 0, gap: 16 }}>
                     <span
@@ -174,11 +174,12 @@ export function HomePage() {
                   </div>
                   <Badge label={meta.label} accent={meta.color} sm />
                 </div>
-              </Card>
+              </div>
             )
           })}
         </div>
       )}
+      </Section>
     </Page>
   )
 }

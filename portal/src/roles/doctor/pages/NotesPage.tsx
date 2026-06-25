@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Page, PageHeader, Button, Field, EmptyState, Loading, Modal } from '../../../shared/design/primitives'
+import { Page, PageHeader, Section, Button, Field, EmptyState, Loading, Modal } from '../../../shared/design/primitives'
 import { Icon } from '../../../shared/design/icons'
 import { useAuth } from '../../../shared/auth/AuthContext'
 import { usePatients } from '../data/usePatients'
@@ -45,7 +45,7 @@ function NoteSection({ icon, label, color, content }: {
 function NoteCard({ note, onEdit }: { note: DoctorNote; onEdit: () => void }) {
   const hasAny = note.diagnosis || note.notes || note.followUp
   return (
-    <div className="umc-card">
+    <div className="umc-rowtile">
       <div className="umc-flex" style={{ justifyContent: 'space-between' }}>
         <span style={{ fontFamily: 'var(--sans)', fontSize: 13, color: 'var(--ink-faint)' }}>
           {formatTimestamp(note.createdAt)}
@@ -178,20 +178,26 @@ export function NotesPage() {
         }
       />
 
-      <Field label="Patient">
-        <select
-          className="umc-select"
-          value={selectedId}
-          onChange={(e) => setSelectedId(e.target.value)}
-        >
-          <option value="">Select a patient…</option>
-          {patients.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-      </Field>
+      <Section title="Patient" subtitle="Choose whose notes to view or add to.">
+        <Field label="Patient">
+          <select
+            className="umc-select"
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+          >
+            <option value="">Select a patient…</option>
+            {patients.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </Field>
+      </Section>
 
-      <div style={{ marginTop: 24 }}>
+      <Section
+        title="Notes"
+        subtitle={patientName ? `Records for ${patientName}.` : 'Diagnoses, observations, and follow-ups.'}
+        style={{ marginTop: 20 }}
+      >
         {!selectedId ? (
           <EmptyState
             icon={<Icon name="person" size={64} />}
@@ -213,7 +219,7 @@ export function NotesPage() {
             ))}
           </div>
         )}
-      </div>
+      </Section>
 
       {draft.open && selectedId && (
         <NoteModal

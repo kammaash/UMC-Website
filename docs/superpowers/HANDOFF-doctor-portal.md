@@ -13,16 +13,38 @@ Doctor is the first role; Pharmacy and Diagnostics come later as sibling role-su
 - The build-less marketing site at the repo root is separate and untouched.
 - Reached from the marketing site via a "Beta tester? Sign in →" link (not added yet).
 
-## Current state (Phase 1 complete & verified)
+## Current state (live in production — last updated 2026-06-26)
 
-- Branch: **`feat/doctor-portal`** (in `UMC-Website`).
-- Built: scaffold, design tokens, Firebase init, auth core (pure `resolveRoleAccess`,
-  `AuthContext` with Google sign-in + `users/{uid}` profile load, `RequireRole` guard),
-  `DoctorShell` + 6 page **stubs**, route table (`/login`, `/wrong-role`, `/` → role landing,
-  `/doctor/*`), Netlify config.
-- Verified: 8/8 unit tests pass, `npm run build` green, and **live Google sign-in works** —
-  a doctor account lands on `/doctor`, non-doctors on `/wrong-role`.
-- The pages are intentionally **functional-but-plain stubs**; no real data yet.
+The portal is **built out and deployed live**. Work has landed on **`main`** (the
+`feat/doctor-portal` and `portal-clinic-aesthetic` branches are merged in). Every push to
+`main` auto-builds and publishes via GitHub Actions — see "Deployment" below.
+
+- **All phases shipped, not stubs:** the data layer (typed models, mappers, live Firestore
+  read hooks, appointment/settings/notes actions) is wired, and all six doctor pages
+  (Home, Schedule, Patients, Notes, Finance, Settings) render real data plus the create
+  flows. The plain stubs are gone.
+- **Design elevation done:** the "clinic-aesthetic" redesign — `Section` titled-card blocks,
+  `StatusToggleTile`, `umc-rowtile` rows, multi-state save pill — is applied across the
+  doctor pages, on top of a **responsive shell + grid** (breakpoints at 1099/819/640px).
+- **Sign-in:** Google, Apple, and **phone OTP**. The portal is **sign-in only / members
+  only** — phone OTP is gated to registered members (`users/{uid}` with a role); an
+  unregistered number is rejected and its freshly-created auth account deleted. Google/Apple
+  still route by role (doctor → `/doctor`, wrong role → `/wrong-role`). A green success
+  animation plays on sign-in.
+- **Security hardening:** Firebase App Check scaffolded (monitoring-ready), fonts self-hosted,
+  CSP + Referrer-Policy added, Netlify dropped. (Broader Cloudflare/Firebase DDoS work is
+  planned but not yet implemented — see `.claude/SECURITY-PLAN.md`.)
+- **Other features live:** clinic location picker (Google Maps) in doctor settings; SPA
+  fallback so deep links like `/member/dashboard` survive direct load + refresh.
+- **Verified:** unit tests pass (`npm run test`), `npm run build` green, and sign-in works live.
+
+## Deployment
+
+Auto-triggered — there is **no manual publish step**. `.github/workflows/deploy-portal.yml`
+runs on every push to `main`: it `npm ci && npm run build`s the portal (Firebase/Maps secrets
+come from GitHub Actions secrets), copies `portal/dist/` into `/member`, publishes a `/login`
+entry that reuses the bundle, and the `github-actions[bot]` commits the built assets back to
+`main` with `[skip ci]` (so it doesn't loop). The site serves from `/member` + `/login`.
 
 ## The two layers (keep this seam)
 
@@ -34,11 +56,10 @@ Doctor is the first role; Pharmacy and Diagnostics come later as sibling role-su
 ## Get the code
 
 1. Get added as a collaborator on the GitHub repo **`kammaash/UMC-Website`** (ask Anand).
-2. Clone and check out the branch:
+2. Clone the repo (current work is on `main`):
    ```bash
    git clone https://github.com/kammaash/UMC-Website.git
    cd UMC-Website
-   git checkout feat/doctor-portal
    ```
 
 ## Local setup & run

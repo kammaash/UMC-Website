@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.googleapis.com https://firestore.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ownership Tracker — Unified Medical Care</title>
+
+  <link rel="icon" type="image/png" href="/favicon.png?v=3" />
+  <link rel="apple-touch-icon" href="/favicon.png?v=3" />
+  <link rel="stylesheet" href="../assets/fonts/fonts.css?v=1" />
+
+  <style>
+    :root {
+      --serif: 'DM Serif Display', Georgia, serif;
+      --sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', 'SFMono-Regular', ui-monospace, monospace;
+      --bg: #e3e3e3; --bg-2: #ededed; --bg-sunken: #d6d6d6;
+      --ink: #1c1c1c; --ink-soft: #555555; --ink-faint: #9e9e9e;
+      --line: rgba(20,20,20,0.14); --line-2: rgba(20,20,20,0.06);
+      --neo-raised: 4px 4px 12px 0.5px rgba(158,158,158,0.30), -3px -3px 10px 0 rgba(255,255,255,0.72);
+      --neo-input: inset 2px 2px 6px 0 rgba(158,158,158,0.25), inset -1.5px -1.5px 5px 0 rgba(255,255,255,0.55);
+      --neo-pressed: 1.5px 1.5px 4px 0 rgba(158,158,158,0.18);
+      --r: 18px;
+      --ease-out: cubic-bezier(0.16,1,0.3,1);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: clamp(28px, 6vw, 72px) 20px 64px;
+    }
+
+    /* faint grain, matches marketing site */
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    .wrap { position: relative; z-index: 1; width: 100%; max-width: 720px; }
+
+    .eyebrow {
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.28em;
+      font-size: 10.5px;
+      color: var(--ink-faint);
+      text-align: center;
+      margin: 0 0 10px;
+    }
+    h1 {
+      font-family: var(--serif);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      font-size: clamp(28px, 6vw, 40px);
+      text-align: center;
+      margin: 0 0 6px;
+    }
+    .sub {
+      text-align: center;
+      color: var(--ink-soft);
+      font-size: 14px;
+      margin: 0 auto 34px;
+      max-width: 460px;
+      line-height: 1.5;
+    }
+
+    /* ---- Donut / hero ---- */
+    .hero { display: flex; flex-direction: column; align-items: center; margin-bottom: 40px; }
+    .donut-wrap { position: relative; width: min(280px, 72vw); aspect-ratio: 1; }
+    .donut { width: 100%; height: 100%; transform: scaleX(-1) rotate(-90deg); }
+    .donut circle { fill: none; stroke-linecap: butt; }
+    .donut .track { stroke: var(--bg-sunken); }
+    .donut .arcB { stroke: var(--ink-faint); transition: stroke-dasharray 0.7s var(--ease-out); }
+    .donut .arcA { stroke: var(--ink); transition: stroke-dasharray 0.7s var(--ease-out); }
+    .donut-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+    }
+    .total-num {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(46px, 13vw, 68px);
+      line-height: 1;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .total-label {
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 8.5px;
+      line-height: 1.5;
+      color: var(--ink-faint);
+      margin-top: 8px;
+      max-width: 128px;
+    }
+    .total-label span { display: block; }
+
+    /* ---- Founder cards ---- */
+    .founders { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 520px) { .founders { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      box-shadow: var(--neo-raised);
+      padding: 20px 20px 22px;
+      display: flex; flex-direction: column;
+    }
+    .card-top { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+    .dot { width: 11px; height: 11px; border-radius: 999px; flex: none; }
+    .card.a .dot { background: var(--ink); }
+    .card.b .dot { background: var(--ink-faint); }
+    .name-input {
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--ink);
+      background: transparent;
+      border: none;
+      border-bottom: 1px dashed transparent;
+      padding: 2px 0;
+      width: 100%;
+      outline: none;
+    }
+    .name-input:hover { border-bottom-color: var(--line); }
+    .name-input:focus { border-bottom-color: var(--ink-faint); }
+
+    .pct { font-family: var(--serif); font-weight: 400; font-size: 40px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .pct .unit { font-size: 18px; color: var(--ink-faint); margin-left: 2px; }
+    .hours-line {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: var(--ink-soft);
+      margin-top: 6px;
+    }
+    .bar { height: 5px; border-radius: 999px; background: var(--bg-sunken); margin-top: 14px; overflow: hidden; }
+    .bar > span { display: block; height: 100%; border-radius: 999px; transition: width 0.7s var(--ease-out); }
+    .card.a .bar > span { background: var(--ink); }
+    .card.b .bar > span { background: var(--ink-faint); }
+
+    .logrow { display: flex; gap: 8px; margin-top: 18px; }
+    .hour-input {
+      flex: 1 1 auto; min-width: 0;
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--ink);
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      box-shadow: var(--neo-input);
+      padding: 10px 12px;
+      outline: none;
+      text-align: center;
+    }
+    .hour-input::-webkit-outer-spin-button, .hour-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .hour-input[type=number] { -moz-appearance: textfield; }
+    .hour-input:focus { border-color: var(--ink-faint); }
+    .btn {
+      flex: none;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 10.5px;
+      color: var(--bg-2);
+      background: var(--ink);
+      border: none;
+      border-radius: 11px;
+      padding: 0 15px;
+      cursor: pointer;
+      transition: transform 0.15s var(--ease-out), opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.88; }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ---- status / footer ---- */
+    .status {
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-top: 30px;
+    }
+    .status .live-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ink-faint); }
+    .status.ok .live-dot { background: #4caf50; animation: pulse 2s var(--ease-out) infinite; }
+    .status.err { color: #b23b3b; }
+    .status.err .live-dot { background: #b23b3b; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+    .notice {
+      display: none;
+      margin: 16px auto 0;
+      max-width: 560px;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--ink-soft);
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .notice.show { display: block; }
+    .notice code { font-family: var(--mono); font-size: 11.5px; background: var(--bg-sunken); padding: 1px 5px; border-radius: 5px; }
+
+    /* ---- Motivation toast ---- */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%) translateY(140%);
+      opacity: 0;
+      transition: transform 0.5s var(--ease-out), opacity 0.4s var(--ease-out);
+      width: min(420px, calc(100vw - 32px));
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      box-shadow: var(--neo-raised);
+      padding: 18px 20px;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
+    .toast-msg { font-family: var(--sans); font-weight: 600; font-size: 14px; color: var(--ink); margin: 0 0 12px; }
+    .toast-quote { margin: 0; padding-top: 12px; border-top: 1px dashed var(--line); }
+    .toast-quote p { font-family: var(--serif); font-style: italic; font-size: 14.5px; line-height: 1.45; color: var(--ink-soft); margin: 0 0 6px; }
+    .toast-quote cite { display: block; font-family: var(--mono); font-style: normal; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="eyebrow">Unified Medical Care · Ownership</p>
+    <h1>Sweat Equity Tracker</h1>
+    <p class="sub">Ownership is earned by the hour. Log the time you put in — the more you show up, the larger your slice. Keep building.</p>
+
+    <div class="hero">
+      <div class="donut-wrap">
+        <svg class="donut" viewBox="0 0 200 200" aria-hidden="true">
+          <circle class="track" cx="100" cy="100" r="82" stroke-width="18" />
+          <circle class="arcB" cx="100" cy="100" r="82" stroke-width="18" />
+          <circle class="arcA" cx="100" cy="100" r="82" stroke-width="18" />
+        </svg>
+        <div class="donut-center">
+          <div class="total-num" id="totalNum">0</div>
+          <div class="total-label"><span>Total Hours</span><span>Company Value</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="founders">
+      <div class="card a" data-key="founderA">
+        <div class="card-top">
+          <span class="dot"></span>
+          <input class="name-input" type="text" maxlength="24" value="Anand Kamma" aria-label="Founder 1 name" />
+        </div>
+        <div class="pct"><span class="pct-val">50</span><span class="unit">%</span></div>
+        <div class="hours-line"><span class="card-hours">0</span> hrs logged</div>
+        <div class="bar"><span></span></div>
+        <div class="logrow">
+          <input class="hour-input" type="number" min="0" step="0.5" placeholder="hrs" aria-label="Hours for Anand Kamma" />
+          <button class="btn">Log</button>
+        </div>
+      </div>
+
+      <div class="card b" data-key="founderB">
+        <div class="card-top">
+          <span class="dot"></span>
+          <input class="name-input" type="text" maxlength="24" value="Ashok Kamma" aria-label="Founder 2 name" />
+        </div>
+        <div class="pct"><span class="pct-val">50</span><span class="unit">%</span></div>
+        <div class="hours-line"><span class="card-hours">0</span> hrs logged</div>
+        <div class="bar"><span></span></div>
+        <div class="logrow">
+          <input class="hour-input" type="number" min="0" step="0.5" placeholder="hrs" aria-label="Hours for Ashok Kamma" />
+          <button class="btn">Log</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status" id="status"><span class="live-dot"></span><span id="statusText">Connecting…</span></div>
+    <div class="notice" id="notice"></div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <p class="toast-msg" id="toastMsg"></p>
+    <blockquote class="toast-quote">
+      <p id="toastQuoteText"></p>
+      <cite id="toastQuoteAuthor"></cite>
+    </blockquote>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getFirestore, doc, onSnapshot, setDoc, updateDoc, increment, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // Public Firebase web config (same values already shipped at /member — safe to inline).
+    const firebaseConfig = {
+      apiKey: "AIzaSyA53Kd-vK3XG_htG2u4tn3bi0vCBkZRdL0",
+      authDomain: "tablet-reminder-app-111204.firebaseapp.com",
+      projectId: "tablet-reminder-app-111204",
+      storageBucket: "tablet-reminder-app-111204.firebasestorage.app",
+      messagingSenderId: "756246121532",
+      appId: "1:756246121532:web:c47afcbe71727307c7c739",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    // Isolated collection — never touches any medical data.
+    const ref = doc(db, "siteTracker", "ownership");
+
+    const DEFAULTS = {
+      founderA: { name: "Anand Kamma", hours: 0 },
+      founderB: { name: "Ashok Kamma", hours: 0 },
+    };
+
+    const CIRC = 2 * Math.PI * 82; // donut circumference
+
+    // Motivation quote bank — shown after every hours-logged action.
+    const QUOTES = [
+      { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+      { text: "Your work is going to fill a large part of your life, and the only way to be truly satisfied is to do what you believe is great work.", author: "Steve Jobs" },
+      { text: "The most powerful step that anyone can take to turn their dreams into reality is a simple one: you just need to start.", author: "Marc Randolph, Netflix co-founder" },
+      { text: "There's no such thing as a good idea. Every idea is a bad idea.", author: "Marc Randolph, Netflix co-founder" },
+      { text: "Success breeds pride and vanity. And pride is the only reward of success.", author: "Anand Neelakantan, Asura" },
+      { text: "I had lived as Ravana and I would die as Ravana. I did not intend to become Rama, the perfect man and god. There was no dearth of gods in my country. It only lacked men.", author: "Anand Neelakantan, Asura" },
+      { text: "Satisfaction lies in the effort, not in the attainment. Full effort is full victory.", author: "Mahatma Gandhi" },
+      { text: "The future depends on what you do today.", author: "Mahatma Gandhi" },
+      { text: "It is easier to resist at the beginning than at the end.", author: "Leonardo da Vinci" },
+      { text: "Obstacles cannot crush me; every obstacle yields to stern resolve.", author: "Leonardo da Vinci" },
+      { text: "Great things come from hard work and perseverance. No excuses.", author: "Kobe Bryant" },
+      { text: "I can't relate to lazy people. We don't speak the same language.", author: "Kobe Bryant" },
+    ];
+
+    // Congratulatory line — deliberately egotistical/competitive: every hour
+    // logged is framed as a power move that grows that founder's stake, to
+    // keep both founders craving more ownership.
+    const EGO_MESSAGES = [
+      (name) => `Great job, ${name} — keep this up and you could take over the entire company.`,
+      (name) => `${name}, your stake just went up. Outwork everyone and this company is yours.`,
+      (name) => `That's how empires are built, ${name}. Every hour is more of the company in your hands.`,
+      (name) => `Nice work, ${name} — you're pulling ahead. Ownership is earned, and you just earned more.`,
+      (name) => `Power move, ${name}. Keep logging hours and there won't be a company left to share.`,
+      (name) => `${name}, you just tipped the scale. Keep going and this is all yours.`,
+      (name) => `Well played, ${name} — the more you show up, the smaller everyone else's slice gets.`,
+      (name) => `${name}, that's how you take control. Your equity just climbed.`,
+    ];
+
+    // ---- DOM refs ----
+    const cards = { founderA: document.querySelector('[data-key="founderA"]'), founderB: document.querySelector('[data-key="founderB"]') };
+    const arcA = document.querySelector(".arcA");
+    const arcB = document.querySelector(".arcB");
+    const totalNumEl = document.getElementById("totalNum");
+    const statusEl = document.getElementById("status");
+    const statusText = document.getElementById("statusText");
+    const noticeEl = document.getElementById("notice");
+    const toastEl = document.getElementById("toast");
+    const toastMsgEl = document.getElementById("toastMsg");
+    const toastQuoteTextEl = document.getElementById("toastQuoteText");
+    const toastQuoteAuthorEl = document.getElementById("toastQuoteAuthor");
+
+    let state = structuredClone(DEFAULTS);
+    let displayedTotal = 0;
+    let editingName = null; // which name input is focused (don't clobber while typing)
+
+    function num(v) { return typeof v === "number" && isFinite(v) ? v : 0; }
+
+    function setStatus(kind, text) {
+      statusEl.className = "status " + kind;
+      statusText.textContent = text;
+    }
+    function showNotice(html) { noticeEl.innerHTML = html; noticeEl.classList.add("show"); }
+    function hideNotice() { noticeEl.classList.remove("show"); }
+
+    // Congratulate whichever founder just logged hours + a random motivational quote.
+    let toastTimer = null;
+    function showMotivation(founderName) {
+      const q = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+      const ego = EGO_MESSAGES[Math.floor(Math.random() * EGO_MESSAGES.length)];
+      toastMsgEl.textContent = ego(founderName);
+      toastQuoteTextEl.textContent = `“${q.text}”`;
+      toastQuoteAuthorEl.textContent = `— ${q.author}`;
+      toastEl.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove("show"), 7500);
+    }
+
+    // Count-up tween for the hero total.
+    let rafId = null;
+    function animateTotal(to) {
+      if (rafId) cancelAnimationFrame(rafId);
+      const from = displayedTotal;
+      const start = performance.now();
+      const dur = 650;
+      const tick = (now) => {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const val = from + (to - from) * eased;
+        totalNumEl.textContent = fmt(val);
+        if (t < 1) { rafId = requestAnimationFrame(tick); }
+        else { displayedTotal = to; totalNumEl.textContent = fmt(to); }
+      };
+      rafId = requestAnimationFrame(tick);
+    }
+    // Whole hours show as integers; halves keep one decimal.
+    function fmt(v) { return Number.isInteger(v) ? String(v) : (Math.round(v * 10) / 10).toFixed(1); }
+
+    function render() {
+      const a = num(state.founderA?.hours);
+      const b = num(state.founderB?.hours);
+      const total = a + b;
+      const shareA = total > 0 ? a / total : 0.5;
+      const shareB = total > 0 ? b / total : 0.5;
+
+      // hero
+      animateTotal(total);
+
+      // donut: arcA drawn on top from the start; arcB behind fills the rest.
+      arcA.setAttribute("stroke-dasharray", `${shareA * CIRC} ${CIRC}`);
+      arcB.setAttribute("stroke-dasharray", `${CIRC} ${CIRC}`);
+
+      // cards
+      updateCard("founderA", a, shareA);
+      updateCard("founderB", b, shareB);
+    }
+
+    function updateCard(key, hours, share) {
+      const el = cards[key];
+      el.querySelector(".pct-val").textContent = Math.round(share * 100);
+      el.querySelector(".card-hours").textContent = fmt(hours);
+      el.querySelector(".bar > span").style.width = (share * 100) + "%";
+      const nameInput = el.querySelector(".name-input");
+      const name = state[key]?.name;
+      if (editingName !== key && name && nameInput.value !== name) nameInput.value = name;
+    }
+
+    // ---- Live subscription ----
+    onSnapshot(ref, (snap) => {
+      hideNotice();
+      setStatus("ok", "Live");
+      if (snap.exists()) {
+        const d = snap.data();
+        state = {
+          founderA: { name: d.founderA?.name || DEFAULTS.founderA.name, hours: num(d.founderA?.hours) },
+          founderB: { name: d.founderB?.name || DEFAULTS.founderB.name, hours: num(d.founderB?.hours) },
+        };
+      } else {
+        // First visit — create the doc with defaults.
+        state = structuredClone(DEFAULTS);
+        setDoc(ref, { ...DEFAULTS, updatedAt: serverTimestamp() }, { merge: true }).catch(handleWriteError);
+      }
+      render();
+    }, (err) => {
+      console.error("tracker snapshot error", err);
+      setStatus("err", "Offline");
+      render(); // still show defaults / last-known state
+      if (err.code === "permission-denied") {
+        showNotice('Live sync isn\'t enabled yet. The Firestore rule for <code>siteTracker</code> needs to be deployed in the backend (<code>tablet_reminder</code> repo) before hours can be saved and shared.');
+      } else {
+        showNotice("Couldn't reach the tracker backend. Check your connection and reload.");
+      }
+    });
+
+    function handleWriteError(err) {
+      console.error("tracker write error", err);
+      if (err.code === "permission-denied") {
+        setStatus("err", "Read-only");
+        showNotice('Hours can\'t be saved yet — the Firestore rule for <code>siteTracker</code> needs to be deployed in the backend (<code>tablet_reminder</code> repo).');
+      } else {
+        showNotice("Something went wrong saving your hours. Please try again.");
+      }
+    }
+
+    // ---- Interactions ----
+    for (const key of ["founderA", "founderB"]) {
+      const el = cards[key];
+      const input = el.querySelector(".hour-input");
+      const btn = el.querySelector(".btn");
+      const nameInput = el.querySelector(".name-input");
+
+      const logHours = () => {
+        const raw = parseFloat(input.value);
+        if (!isFinite(raw) || raw <= 0) { input.value = ""; input.focus(); return; }
+        const amount = Math.round(raw * 10) / 10; // 0.1h precision
+        input.value = "";
+        // optimistic: bump local state immediately for snappy feel
+        state[key].hours = num(state[key].hours) + amount;
+        render();
+        const loggedName = state[key].name;
+        updateDoc(ref, { [`${key}.hours`]: increment(amount), updatedAt: serverTimestamp() })
+          .then(() => {
+            // Only celebrate once the write is confirmed — this is the same
+            // event that triggers the rival's stake-warning email
+            // server-side, so the toast should never claim a win that
+            // didn't actually happen.
+            showMotivation(loggedName);
+          })
+          .catch((err) => {
+            // roll back optimistic bump on failure
+            state[key].hours = num(state[key].hours) - amount;
+            render();
+            handleWriteError(err);
+          });
+      };
+
+      btn.addEventListener("click", logHours);
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") logHours(); });
+
+      nameInput.addEventListener("focus", () => { editingName = key; });
+      const commitName = () => {
+        editingName = null;
+        const val = nameInput.value.trim() || DEFAULTS[key].name;
+        nameInput.value = val;
+        if (val === state[key].name) return;
+        state[key].name = val;
+        updateDoc(ref, { [`${key}.name`]: val, updatedAt: serverTimestamp() }).catch(handleWriteError);
+      };
+      nameInput.addEventListener("blur", commitName);
+      nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") nameInput.blur(); });
+    }
+
+    render();
+  </script>
+</body>
+</html>

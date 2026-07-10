@@ -3,6 +3,7 @@
 (function () {
   const { useRef, useEffect } = React;
   const lerp = (a, b, t) => a + (b - a) * t;
+  const damp = (base, dt) => 1 - Math.pow(1 - base, Math.max(0.5, dt) / 16.667);
 
   // Elements the ring morphs to wrap
   const BTN_SEL = ".btn, .prong, .role-card, .rn-tab, .rn-cta, .rn-back, .faq-item, .portal-entry, .sh-login, .scroll-cue-line, .di-demo-frame, .ef-join, .ending-footer .ef-col a";
@@ -25,8 +26,10 @@
     useEffect(() => {
       const st = s.current;
       const onMove = (e) => {
+        const events = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
+        const p = events && events.length ? events[events.length - 1] : e;
         st.px = st.x; st.py = st.y;
-        st.x = e.clientX; st.y = e.clientY;
+        st.x = p.clientX; st.y = p.clientY;
         st.vx = st.x - st.px; st.vy = st.y - st.py;
         st.visible = true;
         st.hoverEl = e.target && e.target.closest ? e.target.closest(INTERACTIVE) : null;
@@ -34,13 +37,13 @@
       const onDown = () => { st.down = true; };
       const onUp = () => { st.down = false; };
       const onLeave = () => { st.visible = false; };
-      window.addEventListener("mousemove", onMove);
+      window.addEventListener("pointermove", onMove, { passive: true });
       window.addEventListener("pointerdown", onDown);
       window.addEventListener("pointerup", onUp);
       window.addEventListener("blur", onLeave);
       document.addEventListener("mouseleave", onLeave);
       return () => {
-        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerdown", onDown);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("blur", onLeave);
@@ -57,7 +60,13 @@
 
     useEffect(() => {
       let raf;
-      const tick = () => {
+      let last = performance.now();
+      let loaderEl = document.querySelector(".loader");
+      let introEl = document.querySelector(".intro");
+      let frame = 0;
+      const tick = (now) => {
+        const dt = Math.min(34, now - last || 16.667);
+        last = now;
         const st = s.current, me = m.current;
         const btn = st.hoverEl && st.hoverEl.closest ? st.hoverEl.closest(BTN_SEL) : null;
 
@@ -104,8 +113,11 @@
           tw = th = st.down ? 20 : 26; tr = tw / 2;
         }
 
-        me.rx = lerp(me.rx, tx, 0.22); me.ry = lerp(me.ry, ty, 0.22);
-        me.rw = lerp(me.rw, tw, 0.24); me.rh = lerp(me.rh, th, 0.24); me.rr = lerp(me.rr, tr, 0.24);
+        const speed = Math.hypot(st.vx, st.vy);
+        const freeMove = !wrapEl;
+        const posBase = freeMove ? Math.min(0.72, 0.34 + speed / 110) : 0.24;
+        me.rx = lerp(me.rx, tx, damp(posBase, dt)); me.ry = lerp(me.ry, ty, damp(posBase, dt));
+        me.rw = lerp(me.rw, tw, damp(0.28, dt)); me.rh = lerp(me.rh, th, damp(0.28, dt)); me.rr = lerp(me.rr, tr, damp(0.28, dt));
         if (isRoleCircle) {
           const d = (me.rw + me.rh) / 2;
           me.rw = d; me.rh = d; me.rr = d / 2;
@@ -115,8 +127,10 @@
           const el = ring.current;
           // White on dark screens (loader, pre-bloom intro, role dive, ending footer);
           // black on light pages.
-          const loaderEl = document.querySelector(".loader");
-          const introEl = document.querySelector(".intro");
+          if ((frame++ % 30) === 0) {
+            loaderEl = document.querySelector(".loader");
+            introEl = document.querySelector(".intro");
+          }
           const underPointer = document.elementFromPoint(st.x, st.y);
           const endingFooter = underPointer && underPointer.closest
             ? underPointer.closest(".ending-footer")
@@ -133,7 +147,7 @@
           el.style.borderColor = fillEl ? "#fff" : (darkBg ? "#f3f3f3" : "#0b0b0b");
           el.style.background = fillEl ? "#fff" : "transparent";
           el.style.mixBlendMode = fillEl ? "difference" : "normal";
-          el.style.transform = `translate(${me.rx}px,${me.ry}px) translate(-50%,-50%)`;
+          el.style.transform = `translate3d(${me.rx}px,${me.ry}px,0) translate(-50%,-50%)`;
           el.style.width = me.rw + "px"; el.style.height = me.rh + "px"; el.style.borderRadius = me.rr + "px";
           el.style.opacity = st.visible ? 1 : 0;
         }

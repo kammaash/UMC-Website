@@ -737,22 +737,43 @@ export function LoginPage() {
     const el = cursorRef.current
     if (!el || !window.matchMedia('(pointer: fine)').matches) { el?.remove(); return }
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t
-    const onMove = (e: MouseEvent) => { mx.current = e.clientX; my.current = e.clientY }
+    const damp = (base: number, dt: number) => 1 - Math.pow(1 - base, Math.max(0.5, dt) / 16.667)
+    let prevX = mx.current
+    let prevY = my.current
+    let vel = 0
+    const onMove = (e: PointerEvent) => {
+      const events = e.getCoalescedEvents ? e.getCoalescedEvents() : null
+      const p = events && events.length ? events[events.length - 1] : e
+      prevX = mx.current
+      prevY = my.current
+      mx.current = p.clientX
+      my.current = p.clientY
+      vel = Math.hypot(mx.current - prevX, my.current - prevY)
+    }
     const onLeave = () => { mx.current = -300; my.current = -300 }
-    document.addEventListener('mousemove', onMove)
+    document.addEventListener('pointermove', onMove, { passive: true })
     document.addEventListener('mouseleave', onLeave)
 
     let prevHit: (typeof nodesRef.current)[0] | null = null
-    const tick = () => {
+    let cachedHit: (typeof nodesRef.current)[0] | null = null
+    let last = performance.now()
+    let frame = 0
+    const tick = (now: number) => {
+      const dt = Math.min(34, now - last || 16.667)
+      last = now
       // While the modal is open, only its own buttons are reachable.
       const nodes = otpOpenRef.current ? otpNodesRef.current : nodesRef.current
-      let hit: (typeof nodes)[0] | null = null
-      for (const item of nodes) {
-        const { left, top, right, bottom } = item.el.getBoundingClientRect()
-        if (mx.current >= left - item.pad && mx.current <= right  + item.pad &&
-            my.current >= top  - item.pad && my.current <= bottom + item.pad) {
-          hit = item; break
+      let hit: (typeof nodes)[0] | null = cachedHit
+      if ((frame++ % 2) === 0 || !hit) {
+        hit = null
+        for (const item of nodes) {
+          const { left, top, right, bottom } = item.el.getBoundingClientRect()
+          if (mx.current >= left - item.pad && mx.current <= right  + item.pad &&
+              my.current >= top  - item.pad && my.current <= bottom + item.pad) {
+            hit = item; break
+          }
         }
+        cachedHit = hit
       }
       if (hit !== prevHit) {
         el.classList.toggle('is-active', !!(hit?.invert))
@@ -766,17 +787,17 @@ export function LoginPage() {
       } else {
         tx = mx.current; ty = my.current; ttw = 18; tth = 18; ttr = 999
       }
-      const ps = hit ? 0.12 : 0.20
-      cx.current = lerp(cx.current, tx, ps); cy.current = lerp(cy.current, ty, ps)
-      cw.current = lerp(cw.current, ttw, 0.14); ch.current = lerp(ch.current, tth, 0.14); cr.current = lerp(cr.current, ttr, 0.14)
+      const ps = hit ? 0.18 : Math.min(0.76, 0.34 + vel / 110)
+      cx.current = lerp(cx.current, tx, damp(ps, dt)); cy.current = lerp(cy.current, ty, damp(ps, dt))
+      cw.current = lerp(cw.current, ttw, damp(0.18, dt)); ch.current = lerp(ch.current, tth, damp(0.18, dt)); cr.current = lerp(cr.current, ttr, damp(0.18, dt))
       const br = Math.min(cr.current, Math.min(cw.current, ch.current) / 2)
-      el.style.cssText = `width:${cw.current}px;height:${ch.current}px;border-radius:${br}px;transform:translate(${cx.current - cw.current/2}px,${cy.current - ch.current/2}px)`
+      el.style.cssText = `width:${cw.current}px;height:${ch.current}px;border-radius:${br}px;transform:translate3d(${cx.current - cw.current/2}px,${cy.current - ch.current/2}px,0)`
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(rafRef.current)
-      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('pointermove', onMove)
       document.removeEventListener('mouseleave', onLeave)
     }
   }, [])

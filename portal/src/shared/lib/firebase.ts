@@ -37,4 +37,4 @@ if (appCheckSiteKey) {
 
 export const auth = getAuth(app)
 export const db = getFirestore(app)
-export const functions = getFunctions(app)
+export const functions = getFunctions(app, 'asia-south1')

@@ -12,3 +12,6 @@ umc-clean-render.png
 
 # Local Claude Code config
 .claude/
+
+# Claude Code project instructions
+CLAUDE.md

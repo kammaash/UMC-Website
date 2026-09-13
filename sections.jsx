@@ -240,6 +240,7 @@ function ContactFooter() {
             <a href="#intro" onClick={smoothTo("intro")}><span className="ef-link-text">How it works</span></a>
             <a href="#faq" onClick={smoothTo("faq")}><span className="ef-link-text">FAQ</span></a>
             <a href="#download" onClick={smoothTo("download")}><span className="ef-link-text">Get the app</span></a>
+            <a href="/privacy/"><span className="ef-link-text">Privacy Policy</span></a>
           </nav>
 
           <div className="ef-col ef-contact-col">
@@ -273,7 +274,6 @@ function ContactFooter() {
       {/* bottom: legal */}
       <div className="ef-legal">
         <span>© 2026 Unified Medical Care</span>
-        <a href="/privacy/">Privacy Policy</a>
         <span>ASHOKANAND CREATIONS PRIVATE LIMITED</span>
       </div>
     </footer>

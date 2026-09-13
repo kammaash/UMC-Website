@@ -273,6 +273,7 @@ function ContactFooter() {
       {/* bottom: legal */}
       <div className="ef-legal">
         <span>© 2026 Unified Medical Care</span>
+        <a href="/privacy/">Privacy Policy</a>
         <span>ASHOKANAND CREATIONS PRIVATE LIMITED</span>
       </div>
     </footer>

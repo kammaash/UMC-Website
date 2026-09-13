@@ -1085,6 +1085,8 @@ section.snap, footer.snap { scroll-snap-align: start; position: relative; }
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
   color: rgba(243,243,243,0.4);
 }
+.ef-legal a { color: rgba(243,243,243,0.62); text-decoration: none; border-bottom: 1px solid rgba(243,243,243,0.25); transition: color .25s var(--ease-out), border-color .25s; }
+.ef-legal a:hover { color: #fff; border-color: #fff; }
 
 @media (max-width: 880px) {
   .ef-top { flex-direction: column; gap: 32px; }

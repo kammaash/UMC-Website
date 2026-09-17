@@ -1,5 +1,7 @@
 export type AuthStatus = 'unknown' | 'signed-out' | 'signed-in'
-export interface UserProfile { role: string; fullName?: string }
+// patientGroupID: written by claimGroup (server) for role patient; the reminders
+// page uses it to skip the confirm card on a return visit.
+export interface UserProfile { role: string; fullName?: string; patientGroupID?: string }
 export interface AccessInput {
   status: AuthStatus
   profile: UserProfile | null

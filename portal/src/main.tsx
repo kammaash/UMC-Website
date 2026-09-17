@@ -7,9 +7,11 @@ import './shared/design/neo.css'
 import { AuthProvider } from './shared/auth/AuthContext'
 import App from './app/App'
 
-// The same bundle is served at two roots: the portal at /member/* and the
-// standalone sign-in page at /login. Match the router basename to wherever
-// we're mounted so both contexts route correctly.
+// The same bundle is served at three roots: the portal at /member/*, the
+// standalone sign-in page at /login, and the patient reminders page at
+// /reminders/. Match the router basename to wherever we're mounted so all
+// three route correctly (the root-mounted pages keep basename '' and match
+// their own absolute paths in App.tsx).
 const basename = window.location.pathname.startsWith('/member') ? '/member' : ''
 
 createRoot(document.getElementById('root')!).render(

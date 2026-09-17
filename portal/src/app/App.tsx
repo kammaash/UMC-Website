@@ -9,11 +9,14 @@ import { PatientsPage } from '../roles/doctor/pages/PatientsPage'
 import { NotesPage } from '../roles/doctor/pages/NotesPage'
 import { FinancePage } from '../roles/doctor/pages/FinancePage'
 import { SettingsPage } from '../roles/doctor/pages/SettingsPage'
+import { RemindersPage } from '../roles/patient/RemindersPage'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Patient reminders — served at the site root (/reminders/), no role guard. */}
+      <Route path="/reminders" element={<RemindersPage />} />
       <Route path="/" element={<RoleLanding />} />
       <Route path="/dashboard" element={<RequireRole role="doctor" />}>
         <Route element={<DoctorShell />}>

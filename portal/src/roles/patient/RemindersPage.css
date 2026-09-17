@@ -1,0 +1,98 @@
+/* RemindersPage.css — the patient reminders page at /reminders/.
+   Same dark language as the member sign-in (LoginPage), laid out for a phone
+   held in one hand: one column, big tap targets, content pinned to the top so
+   the keyboard never hides the primary button. */
+.umc-rem-root {
+  --serif:    'DM Serif Text', 'DM Serif Display', Georgia, serif;
+  --sans:     'Inter', system-ui, sans-serif;
+  --mono:     'JetBrains Mono', ui-monospace, monospace;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --bg:       #0b0b0b;
+  --fg:       #f3f3f3;
+  --fg-soft:  rgba(243,243,243,0.55);
+  --fg-faint: rgba(243,243,243,0.22);
+  --green:    #34C759;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  padding: max(24px, env(safe-area-inset-top)) 22px max(28px, env(safe-area-inset-bottom));
+}
+
+.umc-rem-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.28em; text-transform: uppercase; color: var(--fg-soft);
+}
+.umc-rem-brand img { width: 26px; height: 26px; border-radius: 7px; }
+
+.umc-rem-main {
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+  gap: 18px; max-width: 420px; width: 100%; margin: 0 auto;
+  padding: 36px 0 24px;
+  opacity: 0; animation: umc-rem-fadeUp 0.7s var(--ease-out) 0.1s forwards;
+}
+@keyframes umc-rem-fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.umc-rem-hdg {
+  font-family: var(--serif); font-weight: 400; font-size: clamp(32px, 9vw, 40px);
+  line-height: 1.08; letter-spacing: -0.02em; margin: 0; color: #fff;
+}
+.umc-rem-lead { font-size: 16px; line-height: 1.55; color: var(--fg-soft); margin: 0; }
+.umc-rem-lead strong { color: var(--fg); font-weight: 600; }
+
+.umc-rem-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; padding: 18px 20px; border-radius: 14px; border: none;
+  font-family: var(--sans); font-size: 16px; font-weight: 600; cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.umc-rem-btn:active { transform: scale(0.985); }
+.umc-rem-btn:disabled { opacity: 0.45; cursor: default; }
+.umc-rem-primary { background: var(--green); color: #04280e; margin-top: 6px; }
+.umc-rem-secondary {
+  background: transparent; color: var(--fg-soft);
+  border: 1px solid rgba(230,230,230,0.14); padding: 14px 18px; font-size: 14px;
+}
+.umc-rem-secondary:active { color: #fff; }
+
+.umc-rem-note {
+  font-family: var(--mono); font-size: 10px; font-weight: 600; line-height: 1.6;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-faint);
+  margin: 0; text-align: center;
+}
+
+.umc-rem-error {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.04em; line-height: 1.5; text-transform: uppercase;
+  color: #ff6b60; background: rgba(255,69,58,0.09);
+  border: 1px solid rgba(255,69,58,0.34); border-radius: 10px; padding: 11px 12px; margin: 0;
+}
+
+/* signed-in card (piece 2 placeholder; the record lookup lands here in piece 3) */
+.umc-rem-card {
+  background: #161618; border: 1px solid rgba(230,230,230,0.1);
+  border-radius: 18px; padding: 22px 20px; display: flex; flex-direction: column; gap: 8px;
+}
+.umc-rem-card-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--fg-soft); margin: 0;
+}
+.umc-rem-card-value { font-family: var(--mono); font-size: 18px; font-weight: 600; color: #fff; margin: 0; }
+
+.umc-rem-loading { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--fg-faint); font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; }
+
+.umc-rem-foot {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--fg-faint); text-align: center; margin-top: 12px;
+}
+.umc-rem-foot a { color: var(--fg-soft); text-decoration: none; }

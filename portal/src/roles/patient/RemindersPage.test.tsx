@@ -15,6 +15,11 @@ vi.mock('./data/reminderClaim', () => ({
   deleteOrphanAccount: vi.fn().mockResolvedValue(undefined), signOutExisting: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('./data/useTodayDoses', () => ({
+  useTodayDoses: vi.fn(() => ({ loading: false, error: null, doses: [], zone: 'Asia/Kolkata', dateLabel: 'Thu, 17 Sept', nowMinutes: 600 })),
+}))
+vi.mock('./data/reminderDoses', () => ({ markDoseTaken: vi.fn() }))
+
 vi.mock('./data/reminderPush', () => ({
   currentPlatform: vi.fn(), pushSupported: vi.fn().mockResolvedValue(true), permissionState: vi.fn(),
   requestPermission: vi.fn(), registerPushToken: vi.fn().mockResolvedValue(undefined),
@@ -163,5 +168,13 @@ describe('RemindersPage — iPhone gate before sign-in', () => {
   it('does not show the steps on Android', () => {
     renderWith({ status: 'signed-out' })
     expect(screen.queryByText(/Add to Home Screen/)).not.toBeInTheDocument()
+  })
+})
+
+describe('RemindersPage — today\'s doses on the claimed screen', () => {
+  it('renders the dose list once claimed (empty state here)', async () => {
+    vi.mocked(pushActions.permissionState).mockReturnValue('granted')
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    expect(await screen.findByText(/No medicines are scheduled for today/)).toBeInTheDocument()
   })
 })

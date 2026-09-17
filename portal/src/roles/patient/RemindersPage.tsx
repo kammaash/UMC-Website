@@ -8,8 +8,8 @@
 // Steps (this file grows piece by piece):
 //   piece 2 — shell + phone OTP sign-in
 //   piece 3 — previewGroupClaim → confirm → claimGroup, and the no-match branches
-//   piece 4 — web push registration (+ iPhone Add-to-Home-Screen gate)              ← here
-//   piece 5 — today's doses + "Taken"
+//   piece 4 — web push registration (+ iPhone Add-to-Home-Screen gate)
+//   piece 5 — today's doses + "Taken" (TodayDoses.tsx; ?dose=<logId> highlights)   ← here
 //
 // Not a member-portal page: no role guard, no users/{uid} requirement, no
 // desktop-only redirect, and it must work with no App Check token at all.
@@ -26,6 +26,7 @@ import {
 } from './data/reminderPush'
 import type { Platform } from './data/platformGate'
 import { formatIndianPhone } from './data/phoneFormat'
+import { TodayDoses } from './TodayDoses'
 import './RemindersPage.css'
 
 type OtpStep = 'idle' | 'phone' | 'otp'
@@ -93,6 +94,8 @@ export function RemindersPage() {
   // Bumped by "Try again" so the lookup effect runs once more for the same uid.
   const [retryKey, setRetryKey] = useState(0)
   const [platform] = useState<Platform>(() => currentPlatform())
+  // ?dose=<logId> from a notification tap (the sender's fcmOptions.link).
+  const [highlightLogId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('dose'))
   const [push, setPush] = useState<PushState>({ kind: 'checking' })
 
   useEffect(() => { document.title = 'UMC — Medicine reminders'; installPwaHead() }, [])
@@ -275,11 +278,13 @@ export function RemindersPage() {
     const first = (claim.fullName || '').trim().split(/\s+/)[0]
     body = (
       <main className="umc-rem-main">
-        <h1 className="umc-rem-hdg">{first ? `You're set up, ${first}` : "You're set up"}</h1>
-        <div className="umc-rem-card">
-          <p className="umc-rem-card-label">Your number</p>
-          <p className="umc-rem-card-value">{formatIndianPhone(user.phoneNumber)}</p>
-        </div>
+        <h1 className="umc-rem-hdg">{push.kind === 'enabled' ? (first ? `Hello, ${first}` : 'Your medicines') : (first ? `You're set up, ${first}` : "You're set up")}</h1>
+        {push.kind !== 'enabled' && (
+          <div className="umc-rem-card">
+            <p className="umc-rem-card-label">Your number</p>
+            <p className="umc-rem-card-value">{formatIndianPhone(user.phoneNumber)}</p>
+          </div>
+        )}
         {push.kind === 'checking' || push.kind === 'registering' ? (
           <p className="umc-rem-lead">{push.kind === 'registering' ? 'Turning on reminders…' : 'Checking this phone…'}</p>
         ) : push.kind === 'enabled' ? (
@@ -309,6 +314,7 @@ export function RemindersPage() {
             <button type="button" className="umc-rem-btn umc-rem-primary" onClick={() => register(claim.groupId)}>Try again →</button>
           </>
         )}
+        <TodayDoses gid={claim.groupId} uid={user.uid} highlightLogId={highlightLogId} />
         <button type="button" className="umc-rem-btn umc-rem-secondary" onClick={handleSignOut}>
           Not you? Sign out
         </button>

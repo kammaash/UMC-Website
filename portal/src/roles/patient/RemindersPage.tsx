@@ -25,6 +25,7 @@ import {
   registerPushToken, listenForeground, installPwaHead, PushSetupError,
 } from './data/reminderPush'
 import type { Platform } from './data/platformGate'
+import { Icon } from '../../shared/design/icons'
 import { formatIndianPhone } from './data/phoneFormat'
 import { TodayDoses } from './TodayDoses'
 import './RemindersPage.css'
@@ -221,7 +222,7 @@ export function RemindersPage() {
   // ── render ───────────────────────────────────────────────────────────────
   let body
   if (status === 'unknown') {
-    body = <div className="umc-rem-loading">Loading…</div>
+    body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />Loading…</div>
   } else if (status === 'signed-out' || !user) {
     body = (
       <main className="umc-rem-main">
@@ -231,17 +232,19 @@ export function RemindersPage() {
           <strong> the phone number your doctor has</strong>, and this page will
           remind you when each dose is due.
         </p>
-        {notice && <p className="umc-rem-error" role="alert">{notice}</p>}
+        {notice && <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{notice}</p>}
         {platform.gate === 'ios-add-to-home' && <AddToHomeSteps beforeSignIn />}
         {platform.gate === 'ios-too-old' && (
-          <p className="umc-rem-error" role="alert">Reminders need iOS 16.4 or newer. Update your iPhone in Settings → General → Software Update, then come back.</p>
+          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />Reminders need iOS 16.4 or newer. Update your iPhone in Settings → General → Software Update, then come back.</p>
         )}
         <button
           type="button"
-          className="umc-rem-btn umc-rem-primary"
+          className="umc-btn primary full big"
           onClick={() => { setNotice(null); setOtpStep('phone') }}
         >
-          Continue with phone →
+          <Icon name="phone" size={20} />
+          Continue with phone
+          <span className="umc-rem-btn-arrow"><Icon name="chevronRight" size={20} /></span>
         </button>
         <p className="umc-rem-note">
           {platform.gate === 'ios-add-to-home'
@@ -251,7 +254,7 @@ export function RemindersPage() {
       </main>
     )
   } else if (claim.kind === 'looking') {
-    body = <div className="umc-rem-loading">Finding your record…</div>
+    body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />Finding your record…</div>
   } else if (claim.kind === 'confirm' || claim.kind === 'claiming') {
     const busy = claim.kind === 'claiming'
     body = (
@@ -266,10 +269,10 @@ export function RemindersPage() {
           </p>
         </div>
         <p className="umc-rem-lead">Confirm, and this phone will get a reminder for every dose your doctor prescribed.</p>
-        <button type="button" className="umc-rem-btn umc-rem-primary" disabled={busy} onClick={handleClaim}>
-          {busy ? <span className="umc-rem-spinner" aria-hidden="true" /> : "Yes, that's me →"}
+        <button type="button" className="umc-btn primary full big" disabled={busy} onClick={handleClaim}>
+          {busy ? <span className="umc-spin on-dark" aria-hidden="true" /> : <><Icon name="check" size={20} />Yes, that's me</>}
         </button>
-        <button type="button" className="umc-rem-btn umc-rem-secondary" disabled={busy} onClick={handleSignOut}>
+        <button type="button" className="umc-btn ghost full" disabled={busy} onClick={handleSignOut}>
           Not me — sign out
         </button>
       </main>
@@ -289,34 +292,34 @@ export function RemindersPage() {
           <p className="umc-rem-lead">{push.kind === 'registering' ? 'Turning on reminders…' : 'Checking this phone…'}</p>
         ) : push.kind === 'enabled' ? (
           <div className="umc-rem-ok" role="status">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12.5l5 5L20 6.5" /></svg>
+            <Icon name="checkCircle" size={22} />
             <span>Reminders are on. This phone will get a notification for every dose your doctor prescribed.</span>
           </div>
         ) : push.kind === 'prompt' ? (
           <>
             <p className="umc-rem-lead">Last step: allow this phone to show reminders. Tap the button, then tap <strong>Allow</strong>.</p>
-            <button type="button" className="umc-rem-btn umc-rem-primary" onClick={handleAllow}>Allow reminders →</button>
+            <button type="button" className="umc-btn primary full big" onClick={handleAllow}><Icon name="checkCircle" size={20} />Allow reminders</button>
           </>
         ) : push.kind === 'denied' ? (
-          <p className="umc-rem-error" role="alert">Notifications are blocked for this site. Allow them in your browser's site settings, then reopen this page.</p>
+          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />Notifications are blocked for this site. Allow them in your browser's site settings, then reopen this page.</p>
         ) : push.kind === 'gate' && push.gate === 'ios-add-to-home' ? (
           <>
             <p className="umc-rem-lead">On iPhone, reminders only work from the Home Screen app.</p>
             <AddToHomeSteps beforeSignIn={false} />
           </>
         ) : push.kind === 'gate' && push.gate === 'ios-too-old' ? (
-          <p className="umc-rem-error" role="alert">Reminders need iOS 16.4 or newer. Update your iPhone in Settings → General → Software Update, then reopen this page.</p>
+          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />Reminders need iOS 16.4 or newer. Update your iPhone in Settings → General → Software Update, then reopen this page.</p>
         ) : push.kind === 'gate' ? (
-          <p className="umc-rem-error" role="alert">This browser can't show reminders. On Android open this page in Chrome; on iPhone add it to the Home Screen.</p>
+          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />This browser can't show reminders. On Android open this page in Chrome; on iPhone add it to the Home Screen.</p>
         ) : (
           <>
-            <p className="umc-rem-error" role="alert">{push.message}</p>
-            <button type="button" className="umc-rem-btn umc-rem-primary" onClick={() => register(claim.groupId)}>Try again →</button>
+            <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{push.message}</p>
+            <button type="button" className="umc-btn primary full" onClick={() => register(claim.groupId)}>Try again</button>
           </>
         )}
         <TodayDoses gid={claim.groupId} uid={user.uid} highlightLogId={highlightLogId} />
-        <button type="button" className="umc-rem-btn umc-rem-secondary" onClick={handleSignOut}>
-          Not you? Sign out
+        <button type="button" className="umc-btn ghost full" onClick={handleSignOut}>
+          <Icon name="logout" size={18} />Not you? Sign out
         </button>
       </main>
     )
@@ -324,9 +327,9 @@ export function RemindersPage() {
     body = (
       <main className="umc-rem-main">
         <h1 className="umc-rem-hdg">Something went wrong</h1>
-        <p className="umc-rem-error" role="alert">{claim.message}</p>
-        <button type="button" className="umc-rem-btn umc-rem-primary" onClick={handleRetry}>Try again →</button>
-        <button type="button" className="umc-rem-btn umc-rem-secondary" onClick={handleSignOut}>Sign out</button>
+        <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{claim.message}</p>
+        <button type="button" className="umc-btn primary full" onClick={handleRetry}>Try again</button>
+        <button type="button" className="umc-btn ghost full" onClick={handleSignOut}>Sign out</button>
       </main>
     )
   }

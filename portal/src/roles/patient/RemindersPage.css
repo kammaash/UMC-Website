@@ -1,160 +1,195 @@
 /* RemindersPage.css — the patient reminders page at /reminders/.
-   Same dark language as the member sign-in (LoginPage), laid out for a phone
-   held in one hand: one column, big tap targets, content pinned to the top so
-   the keyboard never hides the primary button. */
+   UMC app look (tokens.css / neo.css are the web port of the app's
+   design_tokens + app_neomorphic): light grey neumorphic surfaces, DM Serif
+   Text headings, Inter body, Mulish labels, JetBrains Mono eyebrows, the
+   dark-ink primary CTA. Laid out for one hand on a phone — one column, big
+   tap targets — and centred as a phone-width column on anything wider. */
+
 .umc-rem-root {
-  --serif:    'DM Serif Text', 'DM Serif Display', Georgia, serif;
-  --sans:     'Inter', system-ui, sans-serif;
-  --mono:     'JetBrains Mono', ui-monospace, monospace;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --bg:       #0b0b0b;
-  --fg:       #f3f3f3;
-  --fg-soft:  rgba(243,243,243,0.55);
-  --fg-faint: rgba(243,243,243,0.22);
-  --green:    #34C759;
+  /* fonts + palette come from tokens.css (:root). Extra page-only tokens: */
+  --green: var(--success-600);
+  --col-max: 480px;
+
+  /* re-theme the shared OTP modal to light (see PhoneOtp.css) */
+  --otp-overlay-bg: rgba(66,66,66,0.34);
+  --otp-card-bg: var(--surface);
+  --otp-card-border: var(--line);
+  --otp-card-shadow: 0 30px 80px rgba(0,0,0,0.22);
+  --otp-title: var(--ink);
+  --otp-input-bg: #f3f3f3;
+  --otp-input-border: var(--line-2);
+  --otp-input-shadow: var(--neo-input);
+  --otp-input-fg: var(--ink);
+  --otp-prefix-bg: var(--surface-sunken);
+  --otp-focus: var(--line-3);
+  --otp-focus-strong: var(--ink-faint);
+  --otp-focus-ring: rgba(66,66,66,0.10);
+  --otp-filled: var(--ink-faint);
+  --otp-caret: var(--ink);
+  --otp-submit-bg: var(--ink);
+  --otp-submit-fg: var(--surface);
+  --otp-submit-shadow: var(--neo-cta);
+  --otp-cancel-border: var(--line);
+  --otp-cancel-hover-bg: var(--surface-sunken);
+  --otp-cancel-hover-border: var(--line-3);
+  --otp-error-fg: var(--error);
+  --otp-error-bg: var(--error-50);
+  --otp-error-border: var(--error-100);
+  --otp-spinner-track: rgba(224,224,224,0.35);
+  --otp-spinner: var(--surface);
+  --fg-soft: var(--ink-soft);
+  --fg-faint: var(--ink-faint);
 
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--surface);
+  color: var(--ink);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
-  padding: max(24px, env(safe-area-inset-top)) 22px max(28px, env(safe-area-inset-bottom));
+  align-items: stretch;
+  padding: max(20px, env(safe-area-inset-top)) clamp(16px, 5vw, 24px) max(24px, env(safe-area-inset-bottom));
 }
+/* the OTP modal's own font vars are dark-page values; on this page use the app fonts */
+.umc-rem-root .umc-otp-overlay { --serif: 'DM Serif Text', 'DM Serif Display', Georgia, serif; --sans: 'Inter', system-ui, sans-serif; }
+.umc-rem-root .umc-otp-title { font-size: 26px; }
+.umc-rem-root .umc-otp-desc { font-family: var(--mulish); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink-soft); }
+.umc-rem-root .umc-otp-input, .umc-rem-root .umc-otp-prefix, .umc-rem-root .umc-otp-box { font-family: var(--sans); }
+.umc-rem-root .umc-otp-btn { font-family: var(--serif); font-weight: 400; font-size: 16px; border-radius: var(--r-md); }
+.umc-rem-root .umc-otp-cancel { color: var(--ink); background: var(--card); box-shadow: var(--neo-raised); border-color: var(--line) !important; }
+.umc-rem-root .umc-otp-error { font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
 
+/* ── brand row ─────────────────────────────────────────────────── */
 .umc-rem-brand {
+  width: 100%; max-width: var(--col-max); margin: 0 auto;
   display: flex; align-items: center; gap: 10px;
-  font-family: var(--mono); font-size: 10px; font-weight: 600;
-  letter-spacing: 0.28em; text-transform: uppercase; color: var(--fg-soft);
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.26em; text-transform: uppercase; color: var(--ink-faint);
 }
-.umc-rem-brand img { width: 26px; height: 26px; border-radius: 7px; }
+.umc-rem-brand img { width: 28px; height: 28px; border-radius: 8px; box-shadow: var(--neo-raised); }
 
+/* ── main column ───────────────────────────────────────────────── */
 .umc-rem-main {
-  flex: 1; display: flex; flex-direction: column; justify-content: center;
-  gap: 18px; max-width: 420px; width: 100%; margin: 0 auto;
-  padding: 36px 0 24px;
-  opacity: 0; animation: umc-rem-fadeUp 0.7s var(--ease-out) 0.1s forwards;
+  flex: 1; width: 100%; max-width: var(--col-max); margin: 0 auto;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 16px; padding: 28px 0 20px;
 }
-@keyframes umc-rem-fadeUp {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+.umc-rem-main > * { opacity: 0; animation: umc-rem-up 0.55s var(--ease-out) forwards; }
+.umc-rem-main > *:nth-child(1) { animation-delay: .03s; }
+.umc-rem-main > *:nth-child(2) { animation-delay: .09s; }
+.umc-rem-main > *:nth-child(3) { animation-delay: .15s; }
+.umc-rem-main > *:nth-child(4) { animation-delay: .21s; }
+.umc-rem-main > *:nth-child(5) { animation-delay: .27s; }
+.umc-rem-main > *:nth-child(n+6) { animation-delay: .33s; }
+@keyframes umc-rem-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .umc-rem-main > * { animation: none; opacity: 1; } }
 
+.umc-rem-eyebrow {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.26em; text-transform: uppercase; color: var(--ink-faint); margin: 0;
+}
 .umc-rem-hdg {
-  font-family: var(--serif); font-weight: 400; font-size: clamp(32px, 9vw, 40px);
-  line-height: 1.08; letter-spacing: -0.02em; margin: 0; color: #fff;
+  font-family: var(--serif); font-weight: 400; color: var(--ink);
+  font-size: clamp(30px, 8.5vw, 38px); line-height: 1.08; letter-spacing: -0.01em; margin: 0;
 }
-.umc-rem-lead { font-size: 16px; line-height: 1.55; color: var(--fg-soft); margin: 0; }
-.umc-rem-lead strong { color: var(--fg); font-weight: 600; }
+.umc-rem-lead { font-family: var(--sans); font-size: 15px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
+.umc-rem-lead strong { color: var(--ink); font-weight: 600; }
 
-.umc-rem-btn {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  width: 100%; padding: 18px 20px; border-radius: 14px; border: none;
-  font-family: var(--sans); font-size: 16px; font-weight: 600; cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-.umc-rem-btn:active { transform: scale(0.985); }
-.umc-rem-btn:disabled { opacity: 0.45; cursor: default; }
-.umc-rem-primary { background: var(--green); color: #04280e; margin-top: 6px; }
-.umc-rem-secondary {
-  background: transparent; color: var(--fg-soft);
-  border: 1px solid rgba(230,230,230,0.14); padding: 14px 18px; font-size: 14px;
-}
-.umc-rem-secondary:active { color: #fff; }
+/* ── buttons: neo.css .umc-btn does the work; page-level spacing only ── */
+.umc-rem-root .umc-btn.full { width: 100%; }
+.umc-rem-root .umc-btn .umc-rem-btn-arrow { margin-left: auto; opacity: .7; }
+.umc-rem-root .umc-btn.primary.big { height: 58px; font-size: 17px; border-radius: var(--r-lg); }
+.umc-rem-root .umc-btn.ghost { color: var(--ink-soft); }
+.umc-rem-root .umc-btn .umc-spin { width: 18px; height: 18px; border-width: 2px; }
 
 .umc-rem-note {
-  font-family: var(--mono); font-size: 10px; font-weight: 600; line-height: 1.6;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-faint);
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--ink-faint);
   margin: 0; text-align: center;
 }
 
+/* status / error banners (app's error tone: red.600 text on red.50) */
 .umc-rem-error {
-  font-family: var(--mono); font-size: 10px; font-weight: 600;
-  letter-spacing: 0.04em; line-height: 1.5; text-transform: uppercase;
-  color: #ff6b60; background: rgba(255,69,58,0.09);
-  border: 1px solid rgba(255,69,58,0.34); border-radius: 10px; padding: 11px 12px; margin: 0;
+  display: flex; gap: 10px; align-items: flex-start;
+  font-family: var(--sans); font-size: 13.5px; font-weight: 500; line-height: 1.45;
+  color: var(--error); background: var(--error-50);
+  border: 1px solid var(--error-100); border-radius: var(--r-md); padding: 12px 14px; margin: 0;
 }
-
-/* signed-in card (piece 2 placeholder; the record lookup lands here in piece 3) */
-.umc-rem-card {
-  background: #161618; border: 1px solid rgba(230,230,230,0.1);
-  border-radius: 18px; padding: 22px 20px; display: flex; flex-direction: column; gap: 8px;
-}
-.umc-rem-card-label {
-  font-family: var(--mono); font-size: 10px; font-weight: 600;
-  letter-spacing: 0.22em; text-transform: uppercase; color: var(--fg-soft); margin: 0;
-}
-.umc-rem-card-value { font-family: var(--mono); font-size: 18px; font-weight: 600; color: #fff; margin: 0; }
-
-.umc-rem-loading { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--fg-faint); font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; }
-
-.umc-rem-foot {
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--fg-faint); text-align: center; margin-top: 12px;
-}
-.umc-rem-foot a { color: var(--fg-soft); text-decoration: none; }
-
-/* piece 3: confirm card */
-.umc-rem-card-name { font-family: var(--serif); font-size: 28px; font-weight: 400; letter-spacing: -0.01em; }
-.umc-rem-card-sub { font-size: 13px; color: var(--fg-soft); margin: 0; line-height: 1.5; }
-.umc-rem-spinner {
-  display: inline-block; width: 18px; height: 18px;
-  border: 2px solid rgba(4,40,14,0.3); border-top-color: #04280e;
-  border-radius: 50%; animation: umc-rem-spin 0.6s linear infinite; vertical-align: middle;
-}
-@keyframes umc-rem-spin { to { transform: rotate(360deg); } }
-.umc-rem-primary:disabled { opacity: 1; }
-
-/* piece 4: push registration + iPhone gate */
-.umc-rem-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-.umc-rem-steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.5; color: var(--fg); }
-.umc-rem-steps li span:first-child {
-  flex: 0 0 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-size: 12px; font-weight: 700; color: #04280e; background: var(--green);
-}
-.umc-rem-steps li strong { color: #fff; font-weight: 600; }
+.umc-rem-error svg { flex: 0 0 18px; margin-top: 1px; }
 .umc-rem-ok {
   display: flex; align-items: center; gap: 12px;
-  background: rgba(52,199,89,0.1); border: 1px solid rgba(52,199,89,0.35);
-  border-radius: 14px; padding: 14px 16px; color: #fff; font-size: 15px; line-height: 1.45;
+  background: var(--success-50); border: 1px solid var(--success-100);
+  border-radius: var(--r-lg); padding: 14px 16px;
+  color: var(--success-900); font-size: 14.5px; line-height: 1.45; font-weight: 500;
 }
-.umc-rem-ok svg { flex: 0 0 22px; color: var(--green); }
+.umc-rem-ok svg { flex: 0 0 22px; color: var(--success-600); }
 
-/* piece 5: today's doses */
-.umc-rem-today { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+/* ── cards (app's raised neumorphic tile) ─────────────────────── */
+.umc-rem-card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r-section); box-shadow: var(--neo-raised);
+  padding: 20px 20px; display: flex; flex-direction: column; gap: 6px;
+}
+.umc-rem-card-label { font-family: var(--mulish); font-size: 13px; font-weight: 600; color: var(--ink-soft); margin: 0; }
+.umc-rem-card-value { font-family: var(--serif); font-size: 22px; color: var(--ink); margin: 0; letter-spacing: 0.01em; }
+.umc-rem-card-name { font-size: 28px; line-height: 1.15; }
+.umc-rem-card-sub { font-family: var(--sans); font-size: 13.5px; color: var(--ink-soft); margin: 0; line-height: 1.5; }
+
+/* numbered steps (iPhone Add to Home Screen) */
+.umc-rem-steps { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.umc-rem-steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 14.5px; line-height: 1.5; color: var(--ink); }
+.umc-rem-steps li > span:first-child {
+  flex: 0 0 26px; height: 26px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--serif); font-size: 14px; color: var(--surface); background: var(--ink); box-shadow: var(--neo-cta);
+}
+.umc-rem-steps li strong { font-weight: 700; }
+
+.umc-rem-loading {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  color: var(--ink-faint); font-family: var(--sans); font-size: 13px;
+}
+.umc-rem-foot {
+  width: 100%; max-width: var(--col-max); margin: 12px auto 0;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-faint); text-align: center;
+}
+.umc-rem-foot a { color: var(--ink-soft); text-decoration: none; }
+
+/* ── today's doses ─────────────────────────────────────────────── */
+.umc-rem-today { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
 .umc-rem-today-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.umc-rem-today-count { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-faint); margin: 0; }
+.umc-rem-today-title { font-family: var(--serif); font-size: 18px; font-weight: 400; color: var(--ink); margin: 0; }
+.umc-rem-today-count { font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--ink-faint); margin: 0; white-space: nowrap; }
 .umc-rem-doses { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .umc-rem-dose {
   display: flex; align-items: center; gap: 12px;
-  background: #161618; border: 1px solid rgba(230,230,230,0.1);
-  border-radius: 16px; padding: 14px 14px 14px 16px;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r-xl); padding: 12px 12px 12px 14px;
+  box-shadow: var(--neo-raised);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
 }
-.umc-rem-dose.is-highlight { border-color: rgba(52,199,89,0.6); box-shadow: 0 0 0 3px rgba(52,199,89,0.16); }
-.umc-rem-dose.is-taken, .umc-rem-dose.is-taken_late { opacity: 0.62; }
-.umc-rem-dose-time { flex: 0 0 64px; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--fg); line-height: 1.3; }
+.umc-rem-dose.is-highlight { border-color: color-mix(in srgb, var(--ink) 40%, transparent); box-shadow: var(--neo-raised-strong); }
+.umc-rem-dose.is-taken, .umc-rem-dose.is-taken_late { background: var(--surface-sunken); box-shadow: var(--neo-pressed); }
+.umc-rem-dose-time {
+  flex: 0 0 auto; min-width: 62px; text-align: center;
+  font-family: var(--serif); font-size: 15px; color: var(--ink); line-height: 1.2;
+  padding: 8px 6px; border-radius: var(--r-md); background: var(--surface); box-shadow: var(--neo-input);
+}
+.umc-rem-dose.is-taken .umc-rem-dose-time, .umc-rem-dose.is-taken_late .umc-rem-dose-time { color: var(--ink-faint); }
 .umc-rem-dose-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.umc-rem-dose-name { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.3; overflow-wrap: anywhere; }
-.umc-rem-dose-sub { font-size: 12px; color: var(--fg-soft); }
+.umc-rem-dose-name { font-family: var(--sans); font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.3; overflow-wrap: anywhere; }
+.umc-rem-dose.is-taken .umc-rem-dose-name, .umc-rem-dose.is-taken_late .umc-rem-dose-name { color: var(--ink-soft); }
+.umc-rem-dose-sub { font-size: 12.5px; color: var(--ink-soft); }
 .umc-rem-dose-status { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
-.umc-rem-pill {
-  font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-  padding: 3px 7px; border-radius: 999px; border: 1px solid rgba(230,230,230,0.14); color: var(--fg-soft);
+.umc-rem-dose-err { font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--error); }
+.umc-rem-root .umc-rem-dose .umc-btn.sm { height: 42px; min-width: 78px; padding: 0 14px; font-size: 15px; flex: 0 0 auto; }
+.umc-rem-dose-check {
+  flex: 0 0 38px; height: 38px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
+  color: var(--success-600); background: var(--success-50); border: 1px solid var(--success-100);
 }
-.umc-rem-pill.is-due { color: #ffd166; border-color: rgba(255,209,102,0.4); }
-.umc-rem-pill.is-missed { color: #ff6b60; border-color: rgba(255,107,96,0.4); }
-.umc-rem-pill.is-taken, .umc-rem-pill.is-taken_late { color: var(--green); border-color: rgba(52,199,89,0.4); }
-.umc-rem-pill.is-muted { color: var(--fg-faint); border-style: dashed; }
-.umc-rem-dose-err { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #ff6b60; }
-.umc-rem-dose-btn {
-  flex: 0 0 auto; min-width: 74px; padding: 12px 14px; border-radius: 12px; border: none;
-  background: var(--green); color: #04280e; font-family: var(--sans); font-size: 14px; font-weight: 700; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+
+/* narrow phones: let the row wrap the button under the text */
+@media (max-width: 360px) {
+  .umc-rem-dose { flex-wrap: wrap; }
+  .umc-rem-root .umc-rem-dose .umc-btn.sm { width: 100%; }
 }
-.umc-rem-dose-btn:active { transform: scale(0.97); }
-.umc-rem-dose-btn:disabled { opacity: 1; cursor: default; }
-.umc-rem-dose-check { flex: 0 0 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--green); background: rgba(52,199,89,0.12); }

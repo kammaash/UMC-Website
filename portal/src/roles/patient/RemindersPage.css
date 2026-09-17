@@ -107,3 +107,18 @@
 }
 @keyframes umc-rem-spin { to { transform: rotate(360deg); } }
 .umc-rem-primary:disabled { opacity: 1; }
+
+/* piece 4: push registration + iPhone gate */
+.umc-rem-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.umc-rem-steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.5; color: var(--fg); }
+.umc-rem-steps li span:first-child {
+  flex: 0 0 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 12px; font-weight: 700; color: #04280e; background: var(--green);
+}
+.umc-rem-steps li strong { color: #fff; font-weight: 600; }
+.umc-rem-ok {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(52,199,89,0.1); border: 1px solid rgba(52,199,89,0.35);
+  border-radius: 14px; padding: 14px 16px; color: #fff; font-size: 15px; line-height: 1.45;
+}
+.umc-rem-ok svg { flex: 0 0 22px; color: var(--green); }

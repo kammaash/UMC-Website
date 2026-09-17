@@ -7,8 +7,8 @@
 //
 // Steps (this file grows piece by piece):
 //   piece 2 — shell + phone OTP sign-in
-//   piece 3 — previewGroupClaim → confirm → claimGroup, and the no-match branches   ← here
-//   piece 4 — web push registration (+ iPhone Add-to-Home-Screen gate)
+//   piece 3 — previewGroupClaim → confirm → claimGroup, and the no-match branches
+//   piece 4 — web push registration (+ iPhone Add-to-Home-Screen gate)              ← here
 //   piece 5 — today's doses + "Taken"
 //
 // Not a member-portal page: no role guard, no users/{uid} requirement, no
@@ -20,6 +20,11 @@ import { phoneAuthMessage, otpAuthMessage } from '../../shared/auth/phoneAuthErr
 import { sendOtp, confirmOtp, resetOtp, signOutReminders } from './data/reminderAuth'
 import { previewClaim, claimGroup, usersDocExists, deleteOrphanAccount, signOutExisting } from './data/reminderClaim'
 import { decideAfterPreview, decideNoMatch, claimErrorMessage } from './data/claimDecision'
+import {
+  currentPlatform, pushSupported, permissionState, requestPermission,
+  registerPushToken, listenForeground, installPwaHead, PushSetupError,
+} from './data/reminderPush'
+import type { Platform } from './data/platformGate'
 import { formatIndianPhone } from './data/phoneFormat'
 import './RemindersPage.css'
 
@@ -40,6 +45,41 @@ const EXISTING_ACCOUNT_MSG =
 const OTHER_ACCOUNT_MSG =
   'This record is already set up on another account. Ask your doctor to check.'
 
+// The push half of the "claimed" screen.
+type PushState =
+  | { kind: 'checking' }
+  | { kind: 'gate'; gate: 'ios-add-to-home' | 'ios-too-old' | 'unsupported' }
+  | { kind: 'prompt' }        // permission not asked yet → "Allow reminders" button (needs a tap)
+  | { kind: 'denied' }        // permission refused in the browser
+  | { kind: 'registering' }
+  | { kind: 'enabled' }
+  | { kind: 'error'; message: string }
+
+function pushErrorMessage(err: unknown): string {
+  const reason = err instanceof PushSetupError ? err.reason : ''
+  switch (reason) {
+    case 'vapid-missing': return "Reminders aren't available on this site yet. Please tell your doctor."
+    case 'no-token':      return "Couldn't set up notifications on this phone. Try again in a moment."
+    case 'write-failed':  return "Couldn't save your reminder setting. Check your connection and try again."
+    default:              return "Couldn't turn on reminders. Please try again."
+  }
+}
+
+// iPhone: web push only works from a Home Screen web app, and that app has
+// its own sign-in, so the steps come BEFORE sign-in on the welcome screen.
+function AddToHomeSteps({ beforeSignIn }: { beforeSignIn: boolean }) {
+  return (
+    <div className="umc-rem-card">
+      <p className="umc-rem-card-label">iPhone · one-time setup</p>
+      <ol className="umc-rem-steps">
+        <li><span>1</span><span>Tap the <strong>Share</strong> button at the bottom of Safari (the square with an arrow).</span></li>
+        <li><span>2</span><span>Choose <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</span></li>
+        <li><span>3</span><span>Open <strong>UMC Reminders</strong> from your Home Screen{beforeSignIn ? ' and sign in there' : ''}.</span></li>
+      </ol>
+    </div>
+  )
+}
+
 export function RemindersPage() {
   const { status, user, profile } = useAuth()
   const [otpStep, setOtpStep] = useState<OtpStep>('idle')
@@ -52,8 +92,10 @@ export function RemindersPage() {
   const lookedUpFor = useRef<string | null>(null)
   // Bumped by "Try again" so the lookup effect runs once more for the same uid.
   const [retryKey, setRetryKey] = useState(0)
+  const [platform] = useState<Platform>(() => currentPlatform())
+  const [push, setPush] = useState<PushState>({ kind: 'checking' })
 
-  useEffect(() => { document.title = 'UMC — Medicine reminders' }, [])
+  useEffect(() => { document.title = 'UMC — Medicine reminders'; installPwaHead() }, [])
 
   // ── the lookup: runs as soon as a session exists ─────────────────────────
   useEffect(() => {
@@ -106,6 +148,41 @@ export function RemindersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, user, retryKey])
 
+  // ── push: once claimed, find out where this browser stands ──────────────
+  const claimedGid = claim.kind === 'claimed' ? claim.groupId : null
+  const register = async (gid: string) => {
+    setPush({ kind: 'registering' })
+    try { await registerPushToken(gid, platform.tokenPlatform); setPush({ kind: 'enabled' }) }
+    catch (err) { console.error('push registration failed:', err); setPush({ kind: 'error', message: pushErrorMessage(err) }) }
+  }
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!claimedGid) { setPush({ kind: 'checking' }); return }
+      if (platform.gate !== 'ok') { setPush({ kind: 'gate', gate: platform.gate }); return }
+      if (!(await pushSupported())) { if (!cancelled) setPush({ kind: 'gate', gate: 'unsupported' }); return }
+      const perm = permissionState()
+      if (cancelled) return
+      if (perm === 'granted') await register(claimedGid)   // silent refresh on every open (lastSeenAt)
+      else if (perm === 'denied') setPush({ kind: 'denied' })
+      else setPush({ kind: 'prompt' })
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claimedGid])
+
+  // "Allow reminders" — the permission prompt must come from a tap.
+  const handleAllow = async () => {
+    if (!claimedGid) return
+    let perm: NotificationPermission = 'default'
+    try { perm = await requestPermission() } catch (err) { console.error('permission request failed:', err) }
+    if (perm === 'granted') await register(claimedGid)
+    else if (perm === 'denied') setPush({ kind: 'denied' })
+  }
+  // While enabled, a message arriving with the page open is shown by the
+  // worker so the same click handling applies.
+  useEffect(() => { if (push.kind !== 'enabled') return; return listenForeground() }, [push.kind])
+
   // ── OTP modal callbacks ──────────────────────────────────────────────────
   const handleSendOtp = async (phone: string): Promise<string | null> => {
     try { await sendOtp(phone); setOtpStep('otp'); return null }
@@ -152,6 +229,10 @@ export function RemindersPage() {
           remind you when each dose is due.
         </p>
         {notice && <p className="umc-rem-error" role="alert">{notice}</p>}
+        {platform.gate === 'ios-add-to-home' && <AddToHomeSteps beforeSignIn />}
+        {platform.gate === 'ios-too-old' && (
+          <p className="umc-rem-error" role="alert">Reminders need iOS 16.4 or newer. Update your iPhone in Settings → General → Software Update, then come back.</p>
+        )}
         <button
           type="button"
           className="umc-rem-btn umc-rem-primary"
@@ -159,7 +240,11 @@ export function RemindersPage() {
         >
           Continue with phone →
         </button>
-        <p className="umc-rem-note">You'll get a 6-digit code by SMS · No app needed</p>
+        <p className="umc-rem-note">
+          {platform.gate === 'ios-add-to-home'
+            ? 'Sign in from the Home Screen app · 6-digit code by SMS'
+            : "You'll get a 6-digit code by SMS · No app needed"}
+        </p>
       </main>
     )
   } else if (claim.kind === 'looking') {
@@ -195,7 +280,35 @@ export function RemindersPage() {
           <p className="umc-rem-card-label">Your number</p>
           <p className="umc-rem-card-value">{formatIndianPhone(user.phoneNumber)}</p>
         </div>
-        <p className="umc-rem-lead">Next, this phone needs permission to show reminders. That step comes next.</p>
+        {push.kind === 'checking' || push.kind === 'registering' ? (
+          <p className="umc-rem-lead">{push.kind === 'registering' ? 'Turning on reminders…' : 'Checking this phone…'}</p>
+        ) : push.kind === 'enabled' ? (
+          <div className="umc-rem-ok" role="status">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12.5l5 5L20 6.5" /></svg>
+            <span>Reminders are on. This phone will get a notification for every dose your doctor prescribed.</span>
+          </div>
+        ) : push.kind === 'prompt' ? (
+          <>
+            <p className="umc-rem-lead">Last step: allow this phone to show reminders. Tap the button, then tap <strong>Allow</strong>.</p>
+            <button type="button" className="umc-rem-btn umc-rem-primary" onClick={handleAllow}>Allow reminders →</button>
+          </>
+        ) : push.kind === 'denied' ? (
+          <p className="umc-rem-error" role="alert">Notifications are blocked for this site. Allow them in your browser's site settings, then reopen this page.</p>
+        ) : push.kind === 'gate' && push.gate === 'ios-add-to-home' ? (
+          <>
+            <p className="umc-rem-lead">On iPhone, reminders only work from the Home Screen app.</p>
+            <AddToHomeSteps beforeSignIn={false} />
+          </>
+        ) : push.kind === 'gate' && push.gate === 'ios-too-old' ? (
+          <p className="umc-rem-error" role="alert">Reminders need iOS 16.4 or newer. Update your iPhone in Settings → General → Software Update, then reopen this page.</p>
+        ) : push.kind === 'gate' ? (
+          <p className="umc-rem-error" role="alert">This browser can't show reminders. On Android open this page in Chrome; on iPhone add it to the Home Screen.</p>
+        ) : (
+          <>
+            <p className="umc-rem-error" role="alert">{push.message}</p>
+            <button type="button" className="umc-rem-btn umc-rem-primary" onClick={() => register(claim.groupId)}>Try again →</button>
+          </>
+        )}
         <button type="button" className="umc-rem-btn umc-rem-secondary" onClick={handleSignOut}>
           Not you? Sign out
         </button>

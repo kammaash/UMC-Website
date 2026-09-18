@@ -12,6 +12,7 @@ import { getMessaging, getToken, isSupported, onMessage, type MessagePayload } f
 import { doc, getDoc, setDoc, serverTimestamp, deleteField } from 'firebase/firestore'
 import { app, db } from '../../../shared/lib/firebase'
 import { detectPlatform, type Platform, type TokenPlatform } from './platformGate'
+import { registerAction, type ExistingToken, type RegisterAction } from './pushDecision'
 import { tokenDocId } from './tokenDocId'
 
 // ── platform facts (DOM) ─────────────────────────────────────────────────
@@ -22,6 +23,7 @@ export function currentPlatform(): Platform {
   return detectPlatform({
     ua: navigator.userAgent,
     standalone,
+    maxTouchPoints: navigator.maxTouchPoints || 0,
     hasServiceWorker: 'serviceWorker' in navigator,
     hasPushManager: 'PushManager' in window,
     hasNotification: 'Notification' in window,
@@ -92,7 +94,13 @@ export class PushSetupError extends Error {
   }
 }
 
-export async function registerPushToken(gid: string, platform: TokenPlatform): Promise<void> {
+// The token this browser last registered, so sign-out can turn exactly that
+// doc off without asking FCM for a token all over again.
+let lastToken: string | null = null
+
+// Returns what happened: 'register' (this phone is on) or 'app-owns' (the UMC
+// app has taken reminders over — the token stays off; see pushDecision.ts).
+export async function registerPushToken(gid: string, platform: TokenPlatform): Promise<RegisterAction> {
   const vapidKey = import.meta.env.VITE_FB_VAPID_KEY
   if (!vapidKey) throw new PushSetupError('vapid-missing')
   const reg = await registration()
@@ -102,20 +110,43 @@ export async function registerPushToken(gid: string, platform: TokenPlatform): P
     token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: reg })
   } catch (e) { throw new PushSetupError('no-token', e) }
   if (!token) throw new PushSetupError('no-token')
+  lastToken = token
 
   const ref = doc(db, 'patientGroups', gid, 'webPushTokens', await tokenDocId(token))
   try {
     const snap = await getDoc(ref)
-    const base = {
+    const action = registerAction(snap.exists() ? (snap.data() as ExistingToken) : null)
+    // Presence is recorded either way — the sender ignores an inactive token,
+    // but lastSeenAt still says this phone is around.
+    const presence = {
       token,
       platform,
       userAgent: navigator.userAgent.slice(0, 256),
       lastSeenAt: serverTimestamp(),
-      active: true,
-      deactivatedReason: deleteField(),
     }
+    if (action === 'app-owns') {
+      await setDoc(ref, presence, { merge: true })
+      return action
+    }
+    const base = { ...presence, active: true, deactivatedReason: deleteField() }
     await setDoc(ref, snap.exists() ? base : { ...base, createdAt: serverTimestamp() }, { merge: true })
+    return action
   } catch (e) { throw new PushSetupError('write-failed', e) }
+}
+
+// Sign-out: stop this browser's token before the session goes away. The rule
+// on webPushTokens is `uid == patient_uid`, so this CANNOT be done after
+// signOut — and if it is skipped, the doses of the patient who just left keep
+// pushing to a phone that may now belong to someone else. Throws on a failed
+// write so the caller can refuse to sign out (decision 2026-09-18).
+export async function deactivatePushToken(gid: string): Promise<void> {
+  if (!lastToken) return   // this browser never registered — nothing to turn off
+  const ref = doc(db, 'patientGroups', gid, 'webPushTokens', await tokenDocId(lastToken))
+  await setDoc(ref, {
+    active: false,
+    deactivatedReason: 'web_signout',
+    lastSeenAt: serverTimestamp(),
+  }, { merge: true })
 }
 
 // ── foreground messages ──────────────────────────────────────────────────

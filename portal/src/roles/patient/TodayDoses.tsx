@@ -1,7 +1,8 @@
-// TodayDoses.tsx — the day's medicines for a claimed patient, with "Taken".
-// A notification tap arrives with ?dose=<logId>; that row is highlighted and
-// scrolled into view (iPhone shows no notification buttons, so this is how
-// an iPhone patient marks a dose).
+// TodayDoses.tsx — the day's medicines for a claimed patient. The tile IS
+// the button (TabletTile in the app): tap it to mark taken; tapping again
+// does nothing once taken, same as the app blocking "untaking". Status is
+// the tile's own text colour + a strikethrough — no separate badge, exactly
+// how the app's TabletTile._getTextColor / _shouldStrikethrough read.
 import { useEffect, useRef, useState } from 'react'
 import { useTodayDoses } from './data/useTodayDoses'
 import { markDoseTaken } from './data/reminderDoses'
@@ -11,9 +12,10 @@ import { Icon } from '../../shared/design/icons'
 const STATUS_LABEL: Record<DoseStatus, string> = {
   upcoming: 'Upcoming', due: 'Due', taken: 'Taken', taken_late: 'Taken late', missed: 'Missed',
 }
-// app status colours (tokens.css): grey upcoming, orange due, green taken, red missed
+// TabletTile._getTextColor: only taken/taken_late/missed get a colour
+// (green/orange/red) — pending/due/upcoming are all just the ink colour.
 const STATUS_ACCENT: Record<DoseStatus, string> = {
-  upcoming: 'var(--ink-faint)', due: 'var(--warning-700)', taken: 'var(--success-600)', taken_late: 'var(--success-600)', missed: 'var(--error)',
+  upcoming: 'var(--ink)', due: 'var(--ink)', taken: 'var(--success-600)', taken_late: 'var(--warning-700)', missed: 'var(--error)',
 }
 
 export function TodayDoses({ gid, uid, highlightLogId }: { gid: string; uid: string; highlightLogId: string | null }) {
@@ -62,38 +64,30 @@ export function TodayDoses({ gid, uid, highlightLogId }: { gid: string; uid: str
           {doses.map((d) => {
             const done = d.status === 'taken' || d.status === 'taken_late'
             const hl = d.logId === highlightLogId
+            const busyHere = busy === d.logId
+            const sub = [d.dosage, d.scheduledTime].filter(Boolean).join(' • ')
             return (
-              <li
-                key={d.logId}
-                ref={hl ? highlightRef : undefined}
-                className={`umc-rem-dose is-${d.status}${hl ? ' is-highlight' : ''}`}
-              >
-                <div className="umc-rem-dose-time">{d.scheduledTime}</div>
-                <div className="umc-rem-dose-body">
-                  <div className="umc-rem-dose-name">{d.medicationName}</div>
-                  {d.dosage && <div className="umc-rem-dose-sub">{d.dosage}</div>}
-                  <div className="umc-rem-dose-status">
-                    <span className="umc-badge sm" style={{ ['--accent' as string]: STATUS_ACCENT[d.status] }}>{STATUS_LABEL[d.status]}</span>
-                    {!d.reminderEnabled && <span className="umc-badge sm" style={{ ['--accent' as string]: 'var(--ink-faint)' }}>No reminder</span>}
+              <li key={d.logId} ref={hl ? highlightRef : undefined}>
+                <button
+                  type="button"
+                  className={`umc-rem-dose is-${d.status}${hl ? ' is-highlight' : ''}`}
+                  style={{ ['--accent' as string]: STATUS_ACCENT[d.status] }}
+                  disabled={done || busyHere}
+                  onClick={() => take(d)}
+                  aria-label={done ? `${d.medicationName} at ${d.scheduledTime}, ${STATUS_LABEL[d.status]}` : `Mark ${d.medicationName} at ${d.scheduledTime} as taken`}
+                >
+                  <div className="umc-rem-dose-name">
+                    {d.medicationName}
+                    {busyHere && <span className="umc-spin" aria-hidden="true" />}
                   </div>
+                  {sub && (
+                    <div className="umc-rem-dose-sub">
+                      {sub}
+                      {!d.reminderEnabled && <span className="umc-rem-dose-noremind"> · No reminder</span>}
+                    </div>
+                  )}
                   {failed === d.logId && <div className="umc-rem-dose-err" role="alert">Couldn't save. Try again.</div>}
-                </div>
-                {done ? (
-                  <div className="umc-rem-dose-check" aria-label="Taken">
-                    <Icon name="check" size={22} />
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="umc-btn sm tonal"
-                    style={{ ['--accent' as string]: 'var(--success-600)' }}
-                    disabled={busy === d.logId}
-                    onClick={() => take(d)}
-                    aria-label={`Mark ${d.medicationName} at ${d.scheduledTime} as taken`}
-                  >
-                    {busy === d.logId ? <span className="umc-spin" aria-hidden="true" /> : <><Icon name="check" size={18} />Taken</>}
-                  </button>
-                )}
+                </button>
               </li>
             )
           })}

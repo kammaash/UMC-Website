@@ -17,7 +17,7 @@ export interface ClaimPreview {
 }
 
 export type AfterPreview =
-  | { kind: 'already-claimed'; groupId: string }   // returning patient: users doc already points at a group
+  | { kind: 'already-claimed'; groupId: string; doctorName?: string }   // returning patient: users doc already points at a group
   | { kind: 'confirm'; groupId: string; patientName: string; doctorName: string }
   | { kind: 'other-account' }                      // group found but claimed by a different uid
   | { kind: 'no-match' }
@@ -30,7 +30,12 @@ export function decideAfterPreview(
   profile: { role?: string; patientGroupID?: string } | null,
 ): AfterPreview {
   const gid = (profile?.patientGroupID || '').trim()
-  if (profile?.role === 'patient' && gid) return { kind: 'already-claimed', groupId: gid }
+  if (profile?.role === 'patient' && gid) {
+    // The preview often can't see an already-claimed group at all (found:false),
+    // so a doctor name here is best-effort — only given when the preview has one.
+    const doctorName = (preview.doctorName || '').trim()
+    return { kind: 'already-claimed', groupId: gid, ...(doctorName ? { doctorName } : {}) }
+  }
   if (!preview.found || !preview.groupId) return { kind: 'no-match' }
   if (preview.isPrimary === false) return { kind: 'other-account' }
   return {

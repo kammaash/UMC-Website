@@ -2,7 +2,7 @@
 // data/ modules). Decisions live in claimDecision.ts; this file just talks to
 // the backend.
 import { deleteUser, signOut } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { auth, db } from '../../../shared/lib/firebase'
 import { callable } from '../../../shared/data/callable'
 import { browserTimezone, type ClaimPreview } from './claimDecision'
@@ -40,4 +40,16 @@ export async function deleteOrphanAccount(): Promise<void> {
 
 export async function signOutExisting(): Promise<void> {
   await signOut(auth)
+}
+
+// claimGroup only writes { role:'patient', patientGroupID } — never the
+// patient's name — so users/{uid}.fullName is set here, best-effort, from
+// whatever name the doctor's record carries. Only writes when it's missing
+// or stale; never overwrites a name that already matches. A permission-denied
+// here means the Firestore rule for a patient's own users/{uid} write needs
+// widening in tablet_reminder — this fails silently rather than blocking claim.
+export async function syncPatientName(uid: string, currentFullName: string | undefined, patientName: string): Promise<void> {
+  const name = (patientName || '').trim()
+  if (!name || (currentFullName || '').trim() === name) return
+  await setDoc(doc(db, 'users', uid), { fullName: name }, { merge: true })
 }

@@ -144,7 +144,7 @@ export function buildTodayDoses(tablets: TabletDoc[], logs: LogDoc[], local: Loc
 // Same classification as the app (markAsTaken) and markDoseFromPush: late
 // only when a late window is set and now is past scheduled + window.
 export function isTakenLate(dose: Pick<Dose, 'scheduledMinutes' | 'lateWindowMinutes'>, nowMinutes: number): boolean {
-  if (!dose.lateWindowMinutes) return false
+  if (dose.lateWindowMinutes == null) return false
   return nowMinutes > dose.scheduledMinutes + dose.lateWindowMinutes
 }
 

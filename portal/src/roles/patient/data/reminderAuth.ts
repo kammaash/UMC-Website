@@ -18,10 +18,14 @@ let verifier: RecaptchaVerifier | null = null
 let pending: ConfirmationResult | null = null
 
 // Sends the SMS code. Throws the Firebase error on failure (the caller maps
-// it with phoneAuthMessage). A failed/consumed reCAPTCHA cannot be reused on
-// the same hidden container, so it is cleared for the next attempt.
+// it with phoneAuthMessage). The verifier is rebuilt on every send: the modal
+// remounts between steps (key={otpStep}) and again on each reopen, so a
+// verifier kept from an earlier send is bound to a #umc-recaptcha node that
+// no longer exists — reusing it fails the first Send after "Try another
+// number". A consumed/failed reCAPTCHA can't be reused anyway.
 export async function sendOtp(phoneE164: string): Promise<void> {
-  if (!verifier) verifier = new RecaptchaVerifier(auth, 'umc-recaptcha', { size: 'invisible' })
+  try { verifier?.clear() } catch { /* ignore */ }
+  verifier = new RecaptchaVerifier(auth, 'umc-recaptcha', { size: 'invisible' })
   try {
     pending = await signInWithPhoneNumber(auth, phoneE164, verifier)
   } catch (err) {

@@ -87,4 +87,8 @@ describe('isTakenLate', () => {
     expect(isTakenLate({ scheduledMinutes: 480, lateWindowMinutes: 15 }, 496)).toBe(true)
     expect(isTakenLate({ scheduledMinutes: 480, lateWindowMinutes: null }, 900)).toBe(false)
   })
+  it('a 0-minute window still counts as configured — late the instant the scheduled minute passes', () => {
+    expect(isTakenLate({ scheduledMinutes: 480, lateWindowMinutes: 0 }, 480)).toBe(false)
+    expect(isTakenLate({ scheduledMinutes: 480, lateWindowMinutes: 0 }, 481)).toBe(true)
+  })
 })

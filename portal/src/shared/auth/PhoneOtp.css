@@ -10,8 +10,8 @@
   --mono:     'JetBrains Mono', ui-monospace, monospace;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --fg:       #f3f3f3;
-  --fg-soft:  rgba(243,243,243,0.45);
-  --fg-faint: rgba(243,243,243,0.18);
+  --fg-soft:  var(--otp-fg-soft, rgba(243,243,243,0.45));
+  --fg-faint: var(--otp-fg-faint, rgba(243,243,243,0.18));
 }
 @keyframes umc-otp-fadeUp {
   from { opacity: 0; transform: translateY(14px); }

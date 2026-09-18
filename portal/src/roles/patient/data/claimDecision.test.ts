@@ -9,6 +9,13 @@ describe('decideAfterPreview', () => {
     expect(decideAfterPreview({ found: false }, { role: 'patient', patientGroupID: 'G0' }))
       .toEqual({ kind: 'already-claimed', groupId: 'G0' })
   })
+  it('carries the doctor name through for a returning patient, when the preview has one', () => {
+    expect(decideAfterPreview({ found: true, groupId: 'G0', doctorName: 'Ranganath', isPrimary: true },
+      { role: 'patient', patientGroupID: 'G0' })).toEqual({ kind: 'already-claimed', groupId: 'G0', doctorName: 'Ranganath' })
+    // the preview often can't see an already-claimed group at all — no doctor name to give
+    expect(decideAfterPreview({ found: false }, { role: 'patient', patientGroupID: 'G0' }))
+      .toEqual({ kind: 'already-claimed', groupId: 'G0' })
+  })
   it('does not treat a non-patient profile with a stray patientGroupID as claimed', () => {
     expect(decideAfterPreview({ found: false }, { role: 'doctor', patientGroupID: 'G0' })).toEqual({ kind: 'no-match' })
   })

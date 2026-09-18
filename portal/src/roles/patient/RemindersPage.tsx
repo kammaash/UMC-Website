@@ -84,7 +84,10 @@ function pushErrorMessage(err: unknown): string {
 // number just signed in with matches no patient record at all. Fixed overlay,
 // same technique as OtpModal, so "Continue with phone" and the rest of the
 // welcome copy underneath are fully hidden, not just captioned.
-function UnregisteredOverlay({ onDismiss }: { onDismiss: () => void }) {
+// `nonPatient`: the number already has a UMC account in the app, just not a
+// patient one (a doctor, pharmacy…) — asking their doctor to register them
+// would be the wrong advice, so that line says so instead (decision 2026-09-19).
+function UnregisteredOverlay({ nonPatient, onDismiss }: { nonPatient: boolean; onDismiss: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDismiss() }
     window.addEventListener('keydown', onKey)
@@ -96,7 +99,9 @@ function UnregisteredOverlay({ onDismiss }: { onDismiss: () => void }) {
         <h1 id="umc-unreg-hdg" className="umc-unreg-hdg">Uh oh!</h1>
         <p className="umc-unreg-lead">We don't have you on our list yet.</p>
         <p className="umc-unreg-sub">
-          Ask your doctor about UMC to get registered — once they've added you, this same page will have your reminders ready.
+          {nonPatient
+            ? 'This number is already registered in the UMC app as a non-patient.'
+            : "Ask your doctor about UMC to get registered — once they've added you, this same page will have your reminders ready."}
         </p>
         <div className="umc-unreg-soon">
           <span className="umc-unreg-soon-badge">Coming soon</span>
@@ -117,7 +122,9 @@ export function RemindersPage() {
   const [notice, setNotice] = useState<string | null>(null)
   // The full-screen "you're not registered" takeover — a genuinely unmatched
   // phone number gets this instead of the plain `notice` banner.
-  const [unregistered, setUnregistered] = useState(false)
+  // 'new': a number UMC has never seen; 'non-patient': an existing app
+  // account that isn't a patient one.
+  const [unregistered, setUnregistered] = useState<null | 'new' | 'non-patient'>(null)
   const [claim, setClaim] = useState<ClaimState>({ kind: 'looking' })
   // The lookup runs once per signed-in uid (StrictMode re-runs effects; the
   // orphan deletion must not).
@@ -177,14 +184,19 @@ export function RemindersPage() {
   // `onNotFound` lets each caller decide how to break that news (a plain
   // banner for a declined match, the full takeover screen for a true
   // no-match) — the account-safety decision itself is identical either way.
-  const cleanupUnclaimedAccount = async (uid: string, onNotFound: () => void) => {
+  // `onNonPatient`, when given, replaces the "already has a UMC account"
+  // banner for an existing account whose role isn't patient; it is still
+  // only signed out, never deleted.
+  const cleanupUnclaimedAccount = async (uid: string, onNotFound: () => void, onNonPatient?: () => void) => {
     let exists = true // fail-safe: an unreadable users doc is treated as existing → sign-out, never delete
     try { exists = await usersDocExists(uid) } catch (e) { console.error('users doc read failed:', e) }
     if (decideNoMatch(exists) === 'delete-orphan') {
       onNotFound()
       await deleteOrphanAccount().catch((e) => console.error('orphan delete failed:', e))
     } else {
-      setNotice(EXISTING_ACCOUNT_MSG)
+      const role = (profile?.role || '').trim()
+      if (onNonPatient && exists && role && role !== 'patient') onNonPatient()
+      else setNotice(EXISTING_ACCOUNT_MSG)
       await signOutExisting().catch((e) => console.error('sign-out failed:', e))
     }
   }
@@ -232,7 +244,7 @@ export function RemindersPage() {
           await signOutExisting().catch((e) => console.error('sign-out failed:', e))
           return
         case 'no-match':
-          await cleanupUnclaimedAccount(uid, () => setUnregistered(true))
+          await cleanupUnclaimedAccount(uid, () => setUnregistered('new'), () => setUnregistered('non-patient'))
           return
       }
     })()
@@ -582,7 +594,7 @@ export function RemindersPage() {
           onCancel={handleCancel}
         />
       )}
-      {unregistered && <UnregisteredOverlay onDismiss={() => setUnregistered(false)} />}
+      {unregistered && <UnregisteredOverlay nonPatient={unregistered === 'non-patient'} onDismiss={() => setUnregistered(null)} />}
       {user && claim.kind === 'claimed' && accountOpen && (
         <AccountSheet
           fullName={formatPatientName(claim.fullName)}

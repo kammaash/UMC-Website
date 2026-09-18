@@ -60,14 +60,6 @@ const IOS_CHROME_TAB = { ...IOS_TAB, browser: 'chromium', safariVersion: null } 
 // the number on the arrow, and the text of the step with that number
 const arrowStep = () => document.querySelector<HTMLElement>('.umc-sketch')?.dataset.step ?? null
 const stepText = (n: string) => screen.getAllByRole('listitem')[Number(n) - 1].textContent ?? ''
-// The panel opens one step at a time; this clicks Next through to the end.
-const revealAll = () => {
-  for (let i = 0; i < 12; i++) {
-    const next = screen.queryByRole('button', { name: 'Next' })
-    if (!next) return
-    fireEvent.click(next)
-  }
-}
 // the symbols drawn inside step n, e.g. ['more', 'share']
 const glyphsIn = (n: number) => [...screen.getAllByRole('listitem')[n - 1].querySelectorAll<HTMLElement>('[data-glyph]')].map((g) => g.dataset.glyph)
 const tipGlyph = () => document.querySelector<SVGElement>('.umc-sketch [data-glyph]')?.dataset.glyph ?? null
@@ -207,11 +199,11 @@ describe('RemindersPage — claim step', () => {
     await waitFor(() => expect(claimActions.signOutExisting).toHaveBeenCalledTimes(1))
     expect(claimActions.deleteOrphanAccount).not.toHaveBeenCalled()
   })
-  it('a returning patient (users doc has patientGroupID) skips the confirm card', async () => {
+  it('a returning patient (users doc has patientGroupID) skips the confirm card and is welcomed back', async () => {
     holdGreeting() // looks at the heading while the name is still in it
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: false })
     renderWith({ status: 'signed-in', user: patientB, profile: { role: 'patient', patientGroupID: 'G0', fullName: 'Patient B' } })
-    expect(await screen.findByRole('heading', { name: "You're set up, Patient B" })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Welcome back, Patient B' })).toBeInTheDocument()
     expect(claimActions.claimGroup).not.toHaveBeenCalled()
     expect(claimActions.usersDocExists).not.toHaveBeenCalled()
   })
@@ -219,15 +211,48 @@ describe('RemindersPage — claim step', () => {
     holdGreeting() // looks at the heading while the name is still in it
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G0', patientName: 'Patient B', isPrimary: true })
     renderWith({ status: 'signed-in', user: patientB, profile: { role: 'patient', patientGroupID: 'G0' } })
-    await screen.findByText("You're set up")
+    await screen.findByText('Welcome back')
     expect(claimActions.syncPatientName).toHaveBeenCalledWith('u1', '', 'Patient B')
+  })
+})
+
+describe('RemindersPage — signing out and back in', () => {
+  it('the next sign-in says "Welcome back", and the name moves to the corner again', async () => {
+    vi.mocked(pushActions.permissionState).mockReturnValue('granted')
+    vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'Patient B', doctorName: '', isPrimary: true })
+    vi.mocked(claimActions.claimGroup).mockResolvedValue({ ok: true, groupId: 'G1', fullName: 'Patient B' })
+    // first time: claims via the confirm card, runs through to the avatar
+    const { rerender } = renderWith({ status: 'signed-in', user: patientB, profile: null })
+    await userEvent.click(await screen.findByText("Yes, that's me"))
+    expect(await screen.findByRole('heading', { name: 'Reminders' })).toBeInTheDocument()
+    await screen.findByRole('button', { name: 'Account details' })
+
+    // signs out: nothing of theirs is left in the header on the sign-in screen
+    vi.mocked(AuthModule.useAuth).mockReturnValue({ status: 'signed-out', user: null, profile: null } as ReturnType<typeof AuthModule.useAuth>)
+    rerender(<RemindersPage />)
+    expect(await screen.findByText('Continue with phone')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Account details' })).not.toBeInTheDocument()
+    expect(document.querySelector('.umc-rem-status')).toBeNull()
+
+    // signs back in (their users doc now carries the claimed group)
+    holdGreeting()
+    vi.mocked(AuthModule.useAuth).mockReturnValue({ status: 'signed-in', user: patientB, profile: claimedProfile } as ReturnType<typeof AuthModule.useAuth>)
+    rerender(<RemindersPage />)
+    expect(await screen.findByRole('heading', { name: 'Welcome back, Patient B' })).toBeInTheDocument()
+    expect(screen.queryByText("Yes, that's me")).not.toBeInTheDocument() // no confirm card again
+  })
+  it('the name leaves "Welcome back" for the corner, leaving "Reminders"', async () => {
+    vi.mocked(pushActions.permissionState).mockReturnValue('granted')
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    expect(await screen.findByRole('heading', { name: 'Reminders' })).toBeInTheDocument()
+    expect(screen.queryByText(/Welcome back/)).not.toBeInTheDocument()
   })
 })
 
 describe('RemindersPage — the number lives in Account details, not on the dashboard', () => {
   it('never shows "Your number" on the claimed screen (settled or not) — the account sheet has it', async () => {
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: 'Next' }) // not settled yet
+    await screen.findByRole('button', { name: /Enable Reminders/ }) // not settled yet
     expect(screen.queryByText('Your number')).not.toBeInTheDocument()
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
@@ -240,8 +265,7 @@ describe('RemindersPage — push registration (claimed screen)', () => {
   it('permission not yet asked → "Allow reminders" button; tap asks, then registers with the gid + platform', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: 'Next' })
-    revealAll()
+    await screen.findByRole('button', { name: /Enable Reminders/ })
     await userEvent.click(screen.getByRole('button', { name: /Enable Reminders/ }))
     expect(pushActions.requestPermission).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(pushActions.registerPushToken).toHaveBeenCalledWith('G0', 'android-chrome'))
@@ -257,8 +281,7 @@ describe('RemindersPage — push registration (claimed screen)', () => {
   it('permission refused at the prompt → blocked message, no registration', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('denied')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: 'Next' })
-    revealAll()
+    await screen.findByRole('button', { name: /Enable Reminders/ })
     await userEvent.click(screen.getByRole('button', { name: /Enable Reminders/ }))
     expect(await screen.findByText(/Notifications are blocked/)).toBeInTheDocument()
     expect(pushActions.registerPushToken).not.toHaveBeenCalled()
@@ -297,7 +320,7 @@ describe('RemindersPage — live reminders-status badge', () => {
   const badge = () => document.querySelector('.umc-rem-status')
   it('stays hidden until push has resolved one way or the other', async () => {
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: 'Next' }) // Android ask steps — not yet answered
+    await screen.findByRole('button', { name: /Enable Reminders/ }) // Android ask steps — not yet answered
     expect(badge()).toBeNull()
   })
   it('reminders enabled → green, labelled on', async () => {
@@ -349,25 +372,22 @@ describe('RemindersPage — live reminders-status badge', () => {
 })
 
 describe('RemindersPage — Android notification steps (claimed screen)', () => {
-  it('walks through the prompt(s) one step at a time, ending on the button that opens it', async () => {
+  it('shows every step at once — no Next, no Done — ending on the button that opens the prompt', async () => {
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: 'Next' })
-    // the real button waits for the last step — the patient knows what's coming first
-    expect(screen.queryByRole('button', { name: /Enable Reminders/ })).not.toBeInTheDocument()
-    revealAll()
+    await screen.findByRole('button', { name: /Enable Reminders/ })
     const steps = screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
     expect(steps).toHaveLength(3)
     expect(steps[1]).toMatch(/Allow/)
     expect(steps[2]).toMatch(/ask once more/)
-    expect(screen.getByText('Step 3 of 3')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Enable Reminders/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Done/ })).toBeNull()
+    expect(screen.queryByText(/Step \d of/)).toBeNull()
     expect(pushActions.requestPermission).not.toHaveBeenCalled()
   })
   it('prompt dismissed without an answer → steps stay, the button can be tapped again', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('default')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: 'Next' })
-    revealAll()
+    await screen.findByRole('button', { name: /Enable Reminders/ })
     await userEvent.click(screen.getByRole('button', { name: /Enable Reminders/ }))
     expect(await screen.findByRole('button', { name: /Enable Reminders/ })).toBeInTheDocument()
     expect(pushActions.registerPushToken).not.toHaveBeenCalled()
@@ -376,7 +396,6 @@ describe('RemindersPage — Android notification steps (claimed screen)', () => 
     vi.mocked(pushActions.permissionState).mockReturnValue('denied')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
     await screen.findByText(/Notifications are blocked/)
-    revealAll()
     const steps = screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
     expect(steps[0]).toMatch(/left of the web address/)
     expect(steps[1]).toMatch(/Notifications/)
@@ -387,7 +406,6 @@ describe('RemindersPage — Android notification steps (claimed screen)', () => 
     vi.mocked(pushActions.permissionState).mockReturnValue('denied')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
     await screen.findByText(/Notifications are blocked/)
-    revealAll()
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
     await userEvent.click(screen.getByRole('button', { name: "I've turned them on" }))
     await waitFor(() => expect(pushActions.registerPushToken).toHaveBeenCalledWith('G0', 'android-chrome'))
@@ -397,7 +415,6 @@ describe('RemindersPage — Android notification steps (claimed screen)', () => 
     vi.mocked(pushActions.permissionState).mockReturnValue('denied')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
     await screen.findByText(/Notifications are blocked/)
-    revealAll()
     await userEvent.click(screen.getByRole('button', { name: "I've turned them on" }))
     expect(await screen.findByText(/Still blocked\. Check/)).toBeInTheDocument()
     expect(pushActions.registerPushToken).not.toHaveBeenCalled()
@@ -418,10 +435,65 @@ describe('RemindersPage — Android notification steps (claimed screen)', () => 
   })
 })
 
+// After sign-in there is no Done (decision 2026-09-19): "You're all set!"
+// plays only once a tap has actually switched reminders on — permission
+// granted and the token saved — then folds itself away.
+describe('RemindersPage — "You\'re all set!" once reminders are confirmed on', () => {
+  afterEach(() => { vi.useRealTimers() })
+  it('Android: Enable Reminders → Allow → saved → all set, then it folds away', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
+    vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    const tap = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    await tap.click(await screen.findByRole('button', { name: /Enable Reminders/ }))
+    expect(await screen.findByText("You're all set!")).toBeInTheDocument()
+    expect(pushActions.registerPushToken).toHaveBeenCalledWith('G0', 'android-chrome')
+    act(() => { vi.advanceTimersByTime(4000) })
+    expect(screen.queryByText("You're all set!")).toBeNull()
+    expect(screen.getByText('Reminders are on.')).toBeInTheDocument()
+  })
+  it('the plain button (installed iPhone app, desktop) celebrates too', async () => {
+    vi.mocked(pushActions.currentPlatform).mockReturnValue({ ...ANDROID, os: 'other', tokenPlatform: 'other' })
+    vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await userEvent.click(await screen.findByRole('button', { name: /Enable Reminders/ }))
+    expect(await screen.findByText("You're all set!")).toBeInTheDocument()
+  })
+  it('not before the save is confirmed — a failed save shows the error, no celebration', async () => {
+    vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
+    vi.mocked(pushActions.registerPushToken).mockRejectedValue(new Error('boom'))
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await userEvent.click(await screen.findByRole('button', { name: /Enable Reminders/ }))
+    expect(await screen.findByText(/Couldn't turn on reminders/)).toBeInTheDocument()
+    expect(screen.queryByText("You're all set!")).toBeNull()
+  })
+  it('never on the silent refresh a returning patient gets on open', async () => {
+    vi.mocked(pushActions.permissionState).mockReturnValue('granted')
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await screen.findByText('Reminders are on.')
+    expect(screen.queryByText("You're all set!")).toBeNull()
+  })
+  it('never when the UMC app owns reminders here', async () => {
+    vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
+    vi.mocked(pushActions.registerPushToken).mockResolvedValue('app-owns')
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await userEvent.click(await screen.findByRole('button', { name: /Enable Reminders/ }))
+    await screen.findByText(/reminders come from the UMC app/)
+    expect(screen.queryByText("You're all set!")).toBeNull()
+  })
+  it('the Home Screen steps shown after sign-in have no Done', async () => {
+    vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS26_TAB)
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await screen.findByText(/Add to Home Screen/)
+    expect(screen.getAllByRole('listitem')).toHaveLength(5)
+    expect(screen.queryByRole('button', { name: /Done/ })).toBeNull()
+  })
+})
+
 describe('RemindersPage — the setup section arrives on its own on phones', () => {
   it('Android: the notification steps pop in by themselves', async () => {
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: 'Next' })
+    await screen.findByRole('button', { name: /Enable Reminders/ })
     expect(document.querySelector('[data-reveal] .umc-install-card')).not.toBeNull()
   })
   it('iPhone/iPad morph out of the pill instead — never wrapped', () => {
@@ -442,7 +514,6 @@ describe('RemindersPage — iPhone gate before sign-in', () => {
   it('shows the Add to Home Screen steps on the welcome screen, sign-in still available', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(screen.getByText(/Add to Home Screen/)).toBeInTheDocument()
     expect(screen.getByText(/sign in there/)).toBeInTheDocument()
     expect(screen.getByText('Continue with phone')).toBeInTheDocument()
@@ -619,7 +690,6 @@ describe('RemindersPage — the install steps are all on screen at once', () => 
   ] as const)('%s: ends by tapping Allow on the notifications prompt', (_, platform) => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(platform)
     renderWith({ status: 'signed-out' })
-    revealAll()
     const last = screen.getAllByRole('listitem').at(-1)!.textContent ?? ''
     expect(last).toMatch(/Enable Reminders/)
     expect(last).toMatch(/Allow/)
@@ -633,7 +703,6 @@ describe('RemindersPage — finishing the setup steps', () => {
   const toLastStep = (platform: typeof IOS26_TAB) => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(platform)
     renderWith({ status: 'signed-out' })
-    revealAll()
   }
   it('Done says "You\'re all set!"', () => {
     toLastStep(IOS26_TAB)
@@ -664,7 +733,6 @@ describe('RemindersPage — Continue with phone waits for the setup steps', () =
   it('opens up once Done is tapped', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS26_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(signIn()).toBeEnabled()
     expect(screen.queryByText(/setup steps above first/i)).toBeNull()
@@ -692,26 +760,22 @@ describe('RemindersPage — the steps match the Safari in front of the patient',
   it('iPhone, Safari 26+: ⋯ at the bottom right, then Share', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS26_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(stepText('1')).toMatch(/bottom-right/i)
   })
   it('iPhone, Safari 26+: makes sure Open as Web App is on', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS26_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(screen.getByText(/Open as Web App/)).toBeInTheDocument()
   })
   it('iPad, Safari 26+: Share, then More, and Open as Web App on', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IPAD26_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(screen.getByText(/View More/)).toBeInTheDocument()
     expect(screen.getByText(/Open as Web App/)).toBeInTheDocument()
   })
   it('older Safari has no such switch, so it is never mentioned', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(screen.queryByText(/Open as Web App/)).not.toBeInTheDocument()
   })
 })
@@ -722,7 +786,6 @@ describe('RemindersPage — the steps show the symbol to tap', () => {
   it('iPhone, Safari 26+: ⋯ and Share, then Add to Home Screen, then the Web App switch', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS26_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(glyphsIn(1)).toEqual(['more', 'share', 'share'])
     expect(glyphsIn(2)).toEqual(['add-home'])
     expect(glyphsIn(3)).toEqual(['toggle'])
@@ -743,13 +806,11 @@ describe('RemindersPage — the steps show the symbol to tap', () => {
   it('Mac Chrome: the install icon', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(MAC_CHROME_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(glyphsIn(2)).toContain('install')
   })
   it('the symbols are pictures of words already there, so screen readers skip them', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS26_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     const g = screen.getAllByRole('listitem')[1].querySelector('[data-glyph]')!
     expect(g.getAttribute('aria-hidden')).toBe('true')
   })
@@ -768,21 +829,18 @@ describe('RemindersPage — the install panel speaks each Apple device\'s langua
   it('an iPhone is told to look at the BOTTOM of the screen', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(stepText('1')).toMatch(/bottom of Safari/i)
     expect(screen.queryByText(/top right/i)).not.toBeInTheDocument()
   })
   it('an iPad is told to look at the TOP RIGHT, not the bottom', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IPAD_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(stepText('1')).toMatch(/top-right/i)
     expect(screen.queryByText(/bottom of your browser/i)).not.toBeInTheDocument()
   })
   it('a Mac gets Add to Dock, never Add to Home Screen', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(MAC_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(screen.getByText(/Add to Dock/)).toBeInTheDocument()
     expect(screen.queryByText(/Add to Home Screen/)).not.toBeInTheDocument()
   })
@@ -791,21 +849,18 @@ describe('RemindersPage — the install panel speaks each Apple device\'s langua
   it('Mac Safari is sent up to the menu bar, and never told about Chrome', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(MAC_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(screen.getByText(/menu bar at the very top left/i)).toBeInTheDocument()
     expect(screen.queryByText(/Install/)).not.toBeInTheDocument()
   })
   it('Mac Chrome is sent to the address bar, and never told about File → Add to Dock', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(MAC_CHROME_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(screen.getByText(/right-hand end of the address bar/i)).toBeInTheDocument()
     expect(screen.queryByText(/Add to Dock/)).not.toBeInTheDocument()
   })
   it('Mac Firefox, which cannot install web apps, is sent to Safari instead', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue({ ...MAC_TAB, browser: 'firefox' })
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(screen.getByText(/open this page in Safari/i)).toBeInTheDocument()
     expect(arrowAt()).toBeNull()
   })
@@ -825,7 +880,6 @@ describe('RemindersPage — dismissing the install panel never strands the patie
     renderWith({ status: 'signed-out' })
     await userEvent.click(screen.getByRole('button', { name: /hide these steps/i }))
     await userEvent.click(await screen.findByRole('button', { name: /set up reminders/i }))
-    revealAll()
     expect(screen.getByText(/Add to Home Screen/)).toBeInTheDocument()
   })
   it('a refresh in the same session keeps it collapsed, rather than nagging', () => {
@@ -875,7 +929,6 @@ describe('RemindersPage — the sketched arrow aims at the real button', () => {
   it('no arrow in Chrome on an iPhone, which is sent to Safari instead', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS_CHROME_TAB)
     renderWith({ status: 'signed-out' })
-    revealAll()
     expect(arrowAt()).toBeNull()
     expect(screen.getByText(/open this page in Safari/i)).toBeInTheDocument()
   })

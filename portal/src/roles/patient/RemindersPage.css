@@ -70,8 +70,17 @@
   flex-direction: column;
   align-items: stretch;
   position: relative;
-  padding: max(20px, env(safe-area-inset-top)) clamp(16px, 5vw, 24px) calc(max(24px, env(safe-area-inset-bottom)) + var(--umc-reveal-room, 0px));
+  padding: max(20px, env(safe-area-inset-top)) clamp(16px, 5vw, 24px) max(24px, env(safe-area-inset-bottom));
 }
+
+/* No scroll unless the content is taller than the screen (decision
+   2026-09-18). The root is exactly one screen tall when its content fits
+   (min-height: 100dvh, border-box), so the only movement left on a page
+   that fits is overscroll: iOS rubber-band bounce and Android pull-to-
+   refresh. Switched off here — scoped with :has() so the doctor portal,
+   which shares html/body, is untouched. A taller page still scrolls
+   normally; it just stops dead at either end. */
+html:has(.umc-rem-root), html:has(.umc-rem-root) body { overscroll-behavior: none; }
 
 /* same grain texture as the login page, for the same reason: a pure flat
    black reads cheap on an OLED phone screen; this breaks it up almost
@@ -198,9 +207,12 @@
 }
 
 /* ── main column ───────────────────────────────────────────────── */
+/* Top-aligned, never vertically centred (decision 2026-09-18): content
+   starts under the brand row and runs down; any spare height collects
+   below it, above the footer. */
 .umc-rem-main {
   flex: 1; width: 100%; max-width: var(--col-max); margin: 0 auto;
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex; flex-direction: column; justify-content: flex-start;
   gap: 16px; padding: 28px 0 20px;
 }
 .umc-rem-main > * { opacity: 0; animation: umc-rem-up 0.55s var(--ease-out) forwards; }
@@ -295,7 +307,8 @@
 .umc-rem-steps li strong { font-weight: 700; }
 
 .umc-rem-loading {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px;
+  padding-top: 28px; /* where .umc-rem-main's content starts, so nothing jumps when it swaps in */
   color: var(--ink-faint); font-family: var(--sans); font-size: 13px;
 }
 .umc-rem-foot {
@@ -637,7 +650,7 @@
 /* room at the foot of the page so, scrolled to the end, the last button and
    the footer sit clear of the line's lane along the bottom edge */
 :root[data-umc-sketch^='bottom'] .umc-rem-root {
-  padding-bottom: calc(max(24px, env(safe-area-inset-bottom)) + 52px + var(--umc-reveal-room, 0px));
+  padding-bottom: calc(max(24px, env(safe-area-inset-bottom)) + 52px);
 }
 
 /* collapsed: never gone, always one tap from coming back */

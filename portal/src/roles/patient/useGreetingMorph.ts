@@ -65,6 +65,16 @@ export function useGreetingMorph(active: boolean, fullName: string) {
     return () => clearTimeout(t)
   }, [active, fullName])
 
+  // Going inactive (the patient signed out) resets everything, so the next
+  // sign-in in this same visit gets the whole sequence again from the start
+  // — "Welcome back, <name>" in the heading, the 8s hold, the flight.
+  useEffect(() => {
+    if (active) return
+    firedRef.current = false
+    if (peekTimer.current) { clearTimeout(peekTimer.current); peekTimer.current = null }
+    setPhase('inline'); setOverlay(null); setFlying(false); setPeeking(false)
+  }, [active])
+
   // Two-step: paint the clone at its start position first, then flip the
   // flying class on the next frame so the transform transition actually runs
   // instead of jumping straight to its end state.

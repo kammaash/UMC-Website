@@ -19,25 +19,21 @@ describe('RevealSetup', () => {
     act(() => { vi.advanceTimersByTime(1) })
     expect(screen.getByText('steps')).toBeInTheDocument()
   })
-  it('then scrolls the section up to the top of the screen, making room to do so', () => {
+  // How far it scrolls (and that a page that fits is left alone) is
+  // bringToTop's own business — bringToTop.test.ts. Here: it never pads the
+  // page to make a scroll possible.
+  it('then brings the section toward the top without padding the page to do it', () => {
     const { container } = render(<Page><RevealSetup><section className="umc-install-card">steps</section></RevealSetup></Page>)
     act(() => { vi.advanceTimersByTime(REVEAL_DELAY_MS) })
     act(() => { vi.advanceTimersByTime(20) }) // the animation frame
-    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
+    expect(window.scrollTo).not.toHaveBeenCalled() // jsdom's page fits its screen
     const root = container.querySelector<HTMLElement>('.umc-rem-root')!
-    expect(root.style.getPropertyValue('--umc-reveal-room')).toMatch(/px$/)
+    expect(root.style.getPropertyValue('--umc-reveal-room')).toBe('')
   })
   it('leaves the page alone when the section was collapsed to its pill', () => {
     render(<Page><RevealSetup><button className="umc-install-pill">Set up reminders</button></RevealSetup></Page>)
     act(() => { vi.advanceTimersByTime(REVEAL_DELAY_MS + 20) })
     expect(screen.getByText('Set up reminders')).toBeInTheDocument()
     expect(window.scrollTo).not.toHaveBeenCalled()
-  })
-  it('gives the room back when it goes', () => {
-    const { container, unmount } = render(<Page><RevealSetup><section className="umc-install-card">steps</section></RevealSetup></Page>)
-    const root = container.querySelector<HTMLElement>('.umc-rem-root')!
-    act(() => { vi.advanceTimersByTime(REVEAL_DELAY_MS) })
-    unmount()
-    expect(root.style.getPropertyValue('--umc-reveal-room')).toBe('')
   })
 })

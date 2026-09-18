@@ -15,13 +15,9 @@ import { SketchLine } from './SketchLine'
 import { Glyph } from './glyphs'
 import { SETUP_HOLD_MS } from './setupTiming'
 import { bringToTop } from './bringToTop'
+import { AllSet, CELEBRATE_MS, EXIT_MS } from './AllSet'
 
 const COLLAPSED_KEY = 'umc-install-collapsed'
-// Matches .umc-install-card exit animation; also the fallback delay when the
-// animation never runs (reduced motion, background tab).
-const EXIT_MS = 400
-// How long "You're all set!" stays up before the panel folds itself away.
-const CELEBRATE_MS = 2600
 // The pill → card morph.
 const MORPH_MS = 560
 const MORPH_EASE = 'cubic-bezier(0.2, 0.9, 0.25, 1)'
@@ -241,7 +237,9 @@ function panelFor(os: InstallOs, browser: Browser, safari: number | null, before
 
 export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone, autoOpen = false }: {
   os: InstallOs; browser: Browser; safariVersion: number | null; beforeSignIn: boolean
-  // told the moment the patient taps Done on the last step
+  // told the moment the patient taps Done on the last step. Only before
+  // sign-in, where Done unlocks "Continue with phone"; after sign-in there is
+  // no Done — the page celebrates once reminders are really on instead.
   onDone?: () => void
   // Phones (decision 2026-09-18): start as the "Set up reminders" pill, then
   // a second later morph open by themselves and scroll up to the top of the
@@ -258,7 +256,7 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
   // opening (which also scrolls).
   const morph = useRef<{ from: DOMRect; auto: boolean } | null>(null)
   const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const giveBackRoom = useRef<(() => void) | null>(null)
+  const cancelScroll = useRef<(() => void) | null>(null)
   // Kept mounted through the shrink-out; `collapsed` only flips once it ends.
   // 'morph' when the card is animating itself back down into the pill's
   // shape (see ghostPill below), 'fade' for the plain CSS exit it falls
@@ -285,7 +283,7 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
     if (timer.current) clearTimeout(timer.current)
     if (celebrateTimer.current) clearTimeout(celebrateTimer.current)
     if (autoTimer.current) clearTimeout(autoTimer.current)
-    giveBackRoom.current?.()
+    cancelScroll.current?.()
   }, [])
 
   const openFromPill = (auto: boolean) => {
@@ -307,7 +305,7 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
     if (collapsed || !m || !card.current) return
     morph.current = null
     morphFromPill(card.current, m.from)
-    if (m.auto) { giveBackRoom.current?.(); giveBackRoom.current = bringToTop(card.current) }
+    if (m.auto) { cancelScroll.current?.(); cancelScroll.current = bringToTop(card.current) }
   }, [collapsed])
 
   const commitCollapse = (fromMorph = false) => {
@@ -402,42 +400,14 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
       </ol>
       {/* Done in the panel's foot, right-hand side. Not "Continue": that word
           already belongs to the sign-in button just below the panel. */}
-      <div className="umc-install-foot">
-        <button type="button" className="umc-install-next" onClick={handleDone} disabled={celebrating}>Done <span aria-hidden="true">✓</span></button>
-      </div>
+      {onDone && (
+        <div className="umc-install-foot">
+          <button type="button" className="umc-install-next" onClick={handleDone} disabled={celebrating}>Done <span aria-hidden="true">✓</span></button>
+        </div>
+      )}
       {/* Drawn once each time the panel opens, starting 1s in (see
           .umc-sketch-* in RemindersPage.css). Leaves with the card on close. */}
       {!closing && target && lineFrom && <SketchLine key={lineFrom} at={target} step={lineFrom} anchor={anchor} />}
     </section>
-  )
-}
-
-// "You're all set!" — takes the card's place for a moment before the panel
-// folds itself away. Cartoony but in UMC's black-and-light palette: a
-// badge that bounces in with a squash, a tick that draws itself, sparks and
-// confetti flying off it. role=status, so it is announced.
-const SPARKS = [0, 45, 90, 135, 180, 225, 270, 315]
-const CONFETTI = [
-  { x: 14, y: 30, r: 3.2 }, { x: 108, y: 22, r: 2.6 }, { x: 118, y: 78, r: 3.4 },
-  { x: 8, y: 88, r: 2.4 }, { x: 36, y: 8, r: 2 }, { x: 92, y: 110, r: 2.2 },
-]
-function AllSet({ line }: { line: string }) {
-  return (
-    <div className="umc-install-yay" role="status">
-      <svg className="umc-yay-badge" viewBox="0 0 120 120" aria-hidden="true">
-        {SPARKS.map((a) => (
-          <line key={a} className="umc-yay-spark" x1="60" y1="10" x2="60" y2="2" transform={`rotate(${a} 60 60)`} />
-        ))}
-        {CONFETTI.map((c, i) => (
-          <circle key={i} className="umc-yay-dot" cx={c.x} cy={c.y} r={c.r} style={{ animationDelay: `${0.35 + i * 0.04}s` }} />
-        ))}
-        <g className="umc-yay-disc">
-          <circle cx="60" cy="60" r="38" />
-          <path className="umc-yay-tick" pathLength={100} d="M 43 61 L 55 73 L 78 48" />
-        </g>
-      </svg>
-      <p className="umc-yay-title">You're all set!</p>
-      <p className="umc-yay-line">{line}</p>
-    </div>
   )
 }

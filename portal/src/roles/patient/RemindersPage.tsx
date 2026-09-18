@@ -27,6 +27,7 @@ import {
 import { installOs, type Platform } from './data/platformGate'
 import { InstallPanel } from './InstallPanel'
 import { NotifyPanel } from './NotifyPanel'
+import { AllSetCard } from './AllSet'
 import { RevealSetup } from './RevealSetup'
 import { Glyph } from './glyphs'
 import { readSetupDone, writeSetupDone } from './installProgress'
@@ -46,7 +47,9 @@ type ClaimState =
   | { kind: 'looking' }
   | { kind: 'confirm'; groupId: string; patientName: string; doctorName: string }
   | { kind: 'claiming'; groupId: string; patientName: string; doctorName: string }
-  | { kind: 'claimed'; groupId: string; fullName: string; doctorName?: string }
+  // returning: signed in to a record this account had already claimed — the
+  // heading says "Welcome back" instead of "You're set up".
+  | { kind: 'claimed'; groupId: string; fullName: string; doctorName?: string; returning: boolean }
   | { kind: 'error'; message: string }
 
 const NOT_YOU_MSG =
@@ -139,6 +142,10 @@ export function RemindersPage() {
   // ?dose=<logId> from a notification tap (the sender's fcmOptions.link).
   const [highlightLogId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('dose'))
   const [push, setPush] = useState<PushState>({ kind: 'checking' })
+  // "You're all set!" is playing: reminders were just switched on by the
+  // patient's own tap and the token write came back. Never on the silent
+  // refresh a returning patient gets on every open.
+  const [celebrating, setCelebrating] = useState(false)
   // Sign-out is blocked while this browser's push token is still live.
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
@@ -184,7 +191,10 @@ export function RemindersPage() {
 
   // ── the lookup: runs as soon as a session exists ─────────────────────────
   useEffect(() => {
-    if (status !== 'signed-in' || !user) { lookedUpFor.current = null; return }
+    // Signed out: forget the last patient entirely, so nothing of theirs (the
+    // header's avatar and status light, the finished name animation) is left
+    // behind on the sign-in screen or carried into the next sign-in.
+    if (status !== 'signed-in' || !user) { lookedUpFor.current = null; setClaim({ kind: 'looking' }); return }
     if (lookedUpFor.current === user.uid) return
     lookedUpFor.current = user.uid
     const uid = user.uid
@@ -203,7 +213,7 @@ export function RemindersPage() {
       switch (verdict.kind) {
         case 'already-claimed': {
           const fullName = profile?.fullName || ''
-          setClaim({ kind: 'claimed', groupId: verdict.groupId, fullName, doctorName: verdict.doctorName })
+          setClaim({ kind: 'claimed', groupId: verdict.groupId, fullName, doctorName: verdict.doctorName, returning: true })
           // Best-effort: claimGroup never wrote a name, so fill it in now if
           // the lookup carries one and it's missing/stale. Only from the SAME
           // group, though — the phone lookup returns the first doctor-created
@@ -234,23 +244,28 @@ export function RemindersPage() {
 
   // ── push: once claimed, find out where this browser stands ──────────────
   const claimedGid = claim.kind === 'claimed' ? claim.groupId : null
-  const register = async (gid: string) => {
+  // `celebrate`: this follows the patient's own action (Enable Reminders,
+  // a re-check after unblocking, Try again), so a confirmed 'enabled' earns
+  // "You're all set!".
+  const register = async (gid: string, celebrate = true) => {
     setPush({ kind: 'registering' })
     try {
       const action = await registerPushToken(gid, platform.tokenPlatform)
-      setPush({ kind: action === 'app-owns' ? 'app-owns' : 'enabled' })
+      const enabled = action !== 'app-owns'
+      setPush({ kind: enabled ? 'enabled' : 'app-owns' })
+      if (enabled && celebrate) setCelebrating(true)
     }
     catch (err) { console.error('push registration failed:', err); setPush({ kind: 'error', message: pushErrorMessage(err) }) }
   }
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      if (!claimedGid) { setPush({ kind: 'checking' }); return }
+      if (!claimedGid) { setPush({ kind: 'checking' }); setCelebrating(false); return }
       if (platform.gate !== 'ok') { setPush({ kind: 'gate', gate: platform.gate }); return }
       if (!(await pushSupported())) { if (!cancelled) setPush({ kind: 'gate', gate: 'unsupported' }); return }
       const perm = permissionState()
       if (cancelled) return
-      if (perm === 'granted') await register(claimedGid)   // silent refresh on every open (lastSeenAt)
+      if (perm === 'granted') await register(claimedGid, false)   // silent refresh on every open (lastSeenAt)
       else if (perm === 'denied') setPush({ kind: 'denied' })
       else setPush({ kind: 'prompt' })
     })()
@@ -306,7 +321,7 @@ export function RemindersPage() {
     setClaim({ kind: 'claiming', groupId, patientName, doctorName })
     try {
       const res = await claimGroup(groupId)
-      setClaim({ kind: 'claimed', groupId: res.groupId, fullName: res.fullName, doctorName })
+      setClaim({ kind: 'claimed', groupId: res.groupId, fullName: res.fullName, doctorName, returning: false })
       // claimGroup doesn't persist the name itself — write it now, best-effort.
       if (user) syncPatientName(user.uid, profile?.fullName, res.fullName).catch((e) => console.error('name sync failed:', e))
     } catch (err) {
@@ -413,13 +428,15 @@ export function RemindersPage() {
       <main className="umc-rem-main umc-rem-dash">
         <h1 className="umc-rem-hdg">
           {morph.phase === 'inline' || morph.phase === 'morphing' ? (
-            <>You're set up{claim.fullName ? ', ' : ''}<span ref={morph.nameRef} style={morph.phase === 'morphing' ? { visibility: 'hidden' } : undefined}>{formatPatientName(claim.fullName)}</span></>
+            <>{claim.returning ? 'Welcome back' : "You're set up"}{claim.fullName ? ', ' : ''}<span ref={morph.nameRef} style={morph.phase === 'morphing' ? { visibility: 'hidden' } : undefined}>{formatPatientName(claim.fullName)}</span></>
           ) : 'Reminders'}
         </h1>
         {/* The number itself lives in Account details now (decision
             2026-09-19) — this screen doesn't need to repeat it. */}
         {push.kind === 'checking' || push.kind === 'registering' ? (
           <p className="umc-rem-lead">{push.kind === 'registering' ? 'Turning on reminders…' : 'Checking this phone…'}</p>
+        ) : push.kind === 'enabled' && celebrating ? (
+          <AllSetCard line="Reminders are on. This phone will ring when each dose is due." onFinished={() => setCelebrating(false)} />
         ) : push.kind === 'enabled' ? (
           // No banner (decision 2026-09-18): the green status light in the
           // header is the whole confirmation. This line is visually hidden

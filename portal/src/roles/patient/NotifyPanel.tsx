@@ -16,10 +16,12 @@
 //             it. Ends on a re-check, and the page also re-checks by itself
 //             when the patient comes back from Settings.
 //
-// Same card, step-at-a-time Next and ticks as InstallPanel, so both platforms
-// look alike. No close button: on this screen the steps ARE the next thing
-// to do, not an aside.
-import { useRef, useState, type ReactNode } from 'react'
+// Same card as InstallPanel, every step on screen at once (decision
+// 2026-09-19), so both platforms look alike. No Next, no Done and no close
+// button: on this screen the steps ARE the next thing to do, and the only
+// way on is the action button at the foot. Once reminders are confirmed on,
+// the page swaps this card for "You're all set!" (AllSet.tsx).
+import type { ReactNode } from 'react'
 import { Glyph } from './glyphs'
 
 export type NotifyMode = 'ask' | 'blocked'
@@ -56,15 +58,6 @@ export function NotifyPanel({ mode, onAllow, onRecheck, stillBlocked = false }: 
   stillBlocked?: boolean
 }) {
   const { label, steps } = stepsFor(mode)
-  const [shown, setShown] = useState(1)
-  const newest = useRef<HTMLLIElement>(null)
-  const active = Math.min(Math.max(1, shown), steps.length)
-  const handleNext = () => {
-    setShown(Math.min(active + 1, steps.length))
-    // bring the new step up into view — on a phone it is often below the fold
-    requestAnimationFrame(() => newest.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }))
-  }
-  const last = active === steps.length
 
   return (
     <section className="umc-install-card umc-notify-card">
@@ -72,35 +65,25 @@ export function NotifyPanel({ mode, onAllow, onRecheck, stillBlocked = false }: 
         <p className="umc-install-label">{label}</p>
       </div>
       <ol className="umc-install-steps">
-        {steps.slice(0, active).map((step, i) => {
-          const n = i + 1
-          const done = n < active
-          return (
-            <li key={n} ref={n === active ? newest : undefined} className={done ? 'is-done' : 'is-active'}>
-              {done
-                ? <span className="umc-install-num" aria-hidden="true" data-done="">✓</span>
-                : <span className="umc-install-num" aria-hidden="true">{n}</span>}
-              <span className="umc-install-body">{step}</span>
-            </li>
-          )
-        })}
+        {steps.map((step, i) => (
+          <li key={i} className="is-active">
+            <span className="umc-install-num" aria-hidden="true">{i + 1}</span>
+            <span className="umc-install-body">{step}</span>
+          </li>
+        ))}
       </ol>
-      {stillBlocked && last && (
+      {stillBlocked && (
         <p className="umc-notify-still" role="alert">Still blocked. Check the steps above, then try again.</p>
       )}
-      <div className="umc-install-foot">
-        <span className="umc-install-count">Step {active} of {steps.length}</span>
-        {!last && <button type="button" className="umc-install-next" onClick={handleNext}>Next <span aria-hidden="true">→</span></button>}
-      </div>
       {/* The real action sits under the steps, full width — the same big
           button the patient was told to look for. */}
-      {last && mode === 'ask' && (
+      {mode === 'ask' && (
         <button type="button" className="umc-btn primary full big umc-install-ring umc-notify-action" onClick={onAllow}>
           <span className="umc-install-ring-bell" aria-hidden="true"><Glyph name="phone-vibrate" /></span>
           Enable Reminders
         </button>
       )}
-      {last && mode === 'blocked' && (
+      {mode === 'blocked' && (
         <button type="button" className="umc-btn primary full umc-notify-action" onClick={onRecheck}>
           I've turned them on
         </button>

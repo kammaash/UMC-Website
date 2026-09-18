@@ -25,12 +25,14 @@ vi.mock('./data/reminderDoses', () => ({ markDoseTaken: vi.fn() }))
 // The phone's 1s hold is tested in InstallPanel.test.tsx; here the Apple
 // panel opens at once.
 vi.mock('./setupTiming', () => ({ SETUP_HOLD_MS: 0 }))
-// The name→avatar sequence's own timing (incl. the settle-fallback) is
-// tested in useGreetingMorph.test.ts separately; here, once settled, it
-// resolves at once so the avatar is reachable — but the fallback stays
-// effectively infinite so tests of the still-unsettled heading aren't
-// raced by it.
-vi.mock('./greetingMorphTiming', () => ({ MORPH_MS: 0, CORNER_HOLD_MS: 0, PEEK_HOLD_MS: 0, SETTLE_FALLBACK_MS: 999_999 }))
+// The name→avatar sequence's own timing (incl. the 8s hold) is tested in
+// useGreetingMorph.test.ts. Here the hold is 0 by default, so the avatar is
+// reachable at once; tests about the "You're set up, <name>" heading call
+// holdGreeting() so the name stays put while they look at it. A hoisted
+// object rather than plain values, so a test can change it.
+const morphTiming = vi.hoisted(() => ({ GREETING_HOLD_MS: 0, MORPH_MS: 0, CORNER_HOLD_MS: 0, PEEK_HOLD_MS: 0 }))
+vi.mock('./greetingMorphTiming', () => morphTiming)
+const holdGreeting = () => { morphTiming.GREETING_HOLD_MS = 999_999 }
 // The 1s hold and the scroll are RevealSetup's own (RevealSetup.test.tsx);
 // here it only marks where it wraps.
 vi.mock('./RevealSetup', () => ({
@@ -82,6 +84,7 @@ function renderWith(authValue: Partial<ReturnType<typeof AuthModule.useAuth>>) {
 }
 
 beforeEach(() => {
+  morphTiming.GREETING_HOLD_MS = 0
   vi.clearAllMocks()
   sessionStorage.clear()
   localStorage.clear()
@@ -136,6 +139,7 @@ describe('RemindersPage — claim step', () => {
     expect(claimActions.claimGroup).not.toHaveBeenCalled()
   })
   it('however the doctor typed the name, the confirm card and the heading show it title-cased', async () => {
+    holdGreeting() // looks at the heading while the name is still in it
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'PATIENT VIJAY KUMAR', doctorName: '', isPrimary: true })
     vi.mocked(claimActions.claimGroup).mockResolvedValue({ ok: true, groupId: 'G1', fullName: 'PATIENT VIJAY KUMAR' })
     renderWith({ status: 'signed-in', user: patientB, profile: null })
@@ -144,6 +148,7 @@ describe('RemindersPage — claim step', () => {
     expect(await screen.findByRole('heading', { name: "You're set up, Patient vijay Kumar" })).toBeInTheDocument()
   })
   it('claims only after "Yes, that\'s me" and then shows the set-up screen', async () => {
+    holdGreeting() // looks at the heading while the name is still in it
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'Patient B', doctorName: '', isPrimary: true })
     vi.mocked(claimActions.claimGroup).mockResolvedValue({ ok: true, groupId: 'G1', fullName: 'Patient B' })
     renderWith({ status: 'signed-in', user: patientB, profile: null })
@@ -203,6 +208,7 @@ describe('RemindersPage — claim step', () => {
     expect(claimActions.deleteOrphanAccount).not.toHaveBeenCalled()
   })
   it('a returning patient (users doc has patientGroupID) skips the confirm card', async () => {
+    holdGreeting() // looks at the heading while the name is still in it
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: false })
     renderWith({ status: 'signed-in', user: patientB, profile: { role: 'patient', patientGroupID: 'G0', fullName: 'Patient B' } })
     expect(await screen.findByRole('heading', { name: "You're set up, Patient B" })).toBeInTheDocument()
@@ -210,6 +216,7 @@ describe('RemindersPage — claim step', () => {
     expect(claimActions.usersDocExists).not.toHaveBeenCalled()
   })
   it('a returning patient with a stale/missing name gets it filled in from the lookup, best-effort', async () => {
+    holdGreeting() // looks at the heading while the name is still in it
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G0', patientName: 'Patient B', isPrimary: true })
     renderWith({ status: 'signed-in', user: patientB, profile: { role: 'patient', patientGroupID: 'G0' } })
     await screen.findByText("You're set up")
@@ -498,7 +505,6 @@ describe('RemindersPage — account details sheet', () => {
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: null })
     await userEvent.click(await screen.findByText("Yes, that's me"))
-    await screen.findByRole('heading', { name: "You're set up, Patient B" })
 
     expect(screen.queryByText('Account details')).not.toBeInTheDocument()
     await openAccountSheet()
@@ -516,7 +522,6 @@ describe('RemindersPage — account details sheet', () => {
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: false })
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: { role: 'patient', patientGroupID: 'G0', fullName: 'Patient B' } })
-    await screen.findByRole('heading', { name: "You're set up, Patient B" })
 
     await openAccountSheet()
     expect(screen.getByText('Account details')).toBeInTheDocument()
@@ -534,10 +539,20 @@ describe('RemindersPage — once settled: "Reminders", the corner initial, and t
     expect(document.querySelector('.umc-rem-corner-name')?.textContent).toBe('P')
   })
 
-  it('the "reminders are on" banner collapses out of the way once settled', async () => {
+  it('reminders on → no banner at all, just the green light in the header (still announced to screen readers)', async () => {
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByText(/Reminders are on/)
+    expect(await screen.findByRole('status')).toHaveTextContent('Reminders are on.')
+    expect(screen.getByRole('status')).toHaveClass('umc-sr-only')
+    expect(document.querySelector('.umc-rem-ok')).toBeNull()
+    expect(document.querySelector('.umc-rem-setup-collapse')).toBeNull()
+    expect(document.querySelector('.umc-rem-status')).toHaveClass('is-on')
+  })
+  it('the "UMC app owns reminders" note still collapses out of the way once settled', async () => {
+    vi.mocked(pushActions.permissionState).mockReturnValue('granted')
+    vi.mocked(pushActions.registerPushToken).mockResolvedValue('app-owns')
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await screen.findByText(/reminders come from the UMC app/)
     await waitFor(() => expect(document.querySelector('.umc-rem-setup-collapse')).toHaveClass('is-tucked'))
   })
 

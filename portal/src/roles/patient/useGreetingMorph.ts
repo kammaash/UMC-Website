@@ -5,13 +5,12 @@
 // (or, with a mouse, hovering) the avatar afterward peeks the initial back
 // out beside it for a couple of seconds.
 //
-// The state machine is deliberately dumb about WHY it fires: `settled` is
-// the normal trigger (push finished registering — the same moment the
-// heading would've said "Hello" anyway), but a fallback timer fires it
-// regardless, because account details must stay reachable even if push
-// never settles (denied, gated, erroring).
+// It fires on a fixed clock: GREETING_HOLD_MS after the claimed screen
+// appears, on every device, whatever push is doing (decision 2026-09-18).
+// Nothing about push state delays or hurries it, so the avatar (and account
+// details behind it) always becomes reachable at the same moment.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { MORPH_MS, CORNER_HOLD_MS, PEEK_HOLD_MS, SETTLE_FALLBACK_MS } from './greetingMorphTiming'
+import { GREETING_HOLD_MS, MORPH_MS, CORNER_HOLD_MS, PEEK_HOLD_MS } from './greetingMorphTiming'
 
 type Phase = 'inline' | 'morphing' | 'corner' | 'avatar'
 
@@ -30,7 +29,7 @@ export interface MorphOverlay {
 
 const CORNER_NAME_FONT_PX = 13
 
-export function useGreetingMorph(active: boolean, fullName: string, settled: boolean) {
+export function useGreetingMorph(active: boolean, fullName: string) {
   const nameRef = useRef<HTMLSpanElement>(null)
   const cornerRef = useRef<HTMLDivElement>(null)
   const [phase, setPhase] = useState<Phase>('inline')
@@ -62,10 +61,9 @@ export function useGreetingMorph(active: boolean, fullName: string, settled: boo
       })
       setPhase('morphing')
     }
-    if (settled) { fire(); return }
-    const t = setTimeout(fire, SETTLE_FALLBACK_MS)
+    const t = setTimeout(fire, GREETING_HOLD_MS)
     return () => clearTimeout(t)
-  }, [active, settled, fullName])
+  }, [active, fullName])
 
   // Two-step: paint the clone at its start position first, then flip the
   // flying class on the next frame so the transform transition actually runs

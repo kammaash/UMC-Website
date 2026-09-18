@@ -143,25 +143,22 @@ export function RemindersPage() {
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
-  // Both "settled" states — reminders are handled, here or by the app — get
-  // the greeting and drop the number card; the list is the point of the page.
+  // Both "settled" states: reminders are handled, here or by the app.
   const settled = push.kind === 'enabled' || push.kind === 'app-owns'
-  // The name → avatar sequence (decision 2026-09-19) fires once push has
-  // resolved one way or another — not just on success. Waiting only for
-  // `settled` would leave account details unreachable for
-  // SETTLE_FALLBACK_MS whenever push comes back denied/gated/erroring,
-  // which is common enough to not be a fallback-only case. It still waits
-  // through 'prompt', though — the patient hasn't acted yet there.
+  // Push has landed somewhere definite, good or bad — what the header's
+  // status light waits for before it shows (it has nothing to say during
+  // 'checking'/'registering'/'prompt').
   const pushResolved = settled || push.kind === 'denied' || push.kind === 'gate' || push.kind === 'error'
-  const morph = useGreetingMorph(claim.kind === 'claimed', claim.kind === 'claimed' ? claim.fullName : '', pushResolved)
+  // The name → avatar sequence runs on its own fixed clock (GREETING_HOLD_MS
+  // after the claimed screen appears), independent of push.
+  const morph = useGreetingMorph(claim.kind === 'claimed', claim.kind === 'claimed' ? claim.fullName : '')
   // The corner label is just the capitalised first initial — same font/colour
   // the name had in the heading (var(--serif) / var(--ink)), just shrunk.
   const nameInitial = claim.kind === 'claimed' ? (claim.fullName.trim().charAt(0).toUpperCase() || '?') : ''
-  // Once reminders are actually on, the setup confirmation collapses out of
-  // the way — the corner already carries that signal, so a banner sitting
-  // between the heading and the dose list every time the page opens is just
-  // repeating itself. Denied/gated/erroring states stay put; those still
-  // need the patient's attention.
+  // The "the UMC app owns reminders here" note collapses out of the way once
+  // the corner has settled — the header's status light carries the ongoing
+  // signal. ('enabled' has no banner at all any more.) Denied/gated/erroring
+  // states stay put; those still need the patient's attention.
   const setupTucked = settled && (morph.phase === 'corner' || morph.phase === 'avatar')
 
   useEffect(() => { document.title = 'UMC — Medicine reminders'; installPwaHead() }, [])
@@ -424,12 +421,11 @@ export function RemindersPage() {
         {push.kind === 'checking' || push.kind === 'registering' ? (
           <p className="umc-rem-lead">{push.kind === 'registering' ? 'Turning on reminders…' : 'Checking this phone…'}</p>
         ) : push.kind === 'enabled' ? (
-          <div className={`umc-rem-setup-collapse${setupTucked ? ' is-tucked' : ''}`}>
-            <div className="umc-rem-ok" role="status">
-              <Icon name="checkCircle" size={22} />
-              <span>Reminders are on. This phone will get a notification for every dose your doctor prescribed.</span>
-            </div>
-          </div>
+          // No banner (decision 2026-09-18): the green status light in the
+          // header is the whole confirmation. This line is visually hidden
+          // and only exists so a screen reader still announces the change,
+          // since the light itself is aria-hidden.
+          <p className="umc-sr-only" role="status">Reminders are on.</p>
         ) : push.kind === 'app-owns' ? (
           <div className={`umc-rem-setup-collapse${setupTucked ? ' is-tucked' : ''}`}>
             <div className="umc-rem-ok" role="status">

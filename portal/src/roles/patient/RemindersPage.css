@@ -266,6 +266,13 @@
 }
 .umc-rem-ok svg { flex: 0 0 22px; color: var(--green); }
 
+/* Read by screen readers, never shown. Absolutely positioned, so inside
+   .umc-rem-main's flex column it takes no row and no gap. */
+.umc-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
 /* ── cards ─────────────────────────────────────────────────────── */
 .umc-rem-card {
   background: var(--card); border: 1px solid var(--line);

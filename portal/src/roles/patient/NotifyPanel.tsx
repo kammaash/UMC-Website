@@ -4,7 +4,7 @@
 // push in an ordinary tab, so there is nothing to install — the one thing that
 // matters is the patient tapping Allow when the browser asks. That ask can only
 // come from a tap on the page, so the steps brief them on what is about to pop
-// up and END on the button that makes it happen ("Ring my reminders").
+// up and END on the button that makes it happen ("Enable Reminders").
 //
 // Two sets of steps:
 //   ask     — permission not asked yet. Android 13+ may ask twice: first the
@@ -29,7 +29,7 @@ function stepsFor(mode: NotifyMode): { label: string; steps: ReactNode[] } {
     return {
       label: 'Let this phone ring for your medicines',
       steps: [
-        <>When you tap <strong>Ring my reminders</strong> <Glyph name="phone-vibrate" /> below, a box will pop up asking if this site can send you notifications.</>,
+        <>When you tap <strong>Enable Reminders</strong> <Glyph name="phone-vibrate" /> below, a box will pop up asking if this site can send you notifications.</>,
         <>Tap <strong>Allow</strong> in that box. Not <em>Block</em> — that stops every reminder.</>,
         <>Your phone may ask once more whether your browser can send notifications. Tap <strong>Allow</strong> there too.</>,
       ],
@@ -97,7 +97,7 @@ export function NotifyPanel({ mode, onAllow, onRecheck, stillBlocked = false }: 
       {last && mode === 'ask' && (
         <button type="button" className="umc-btn primary full big umc-install-ring umc-notify-action" onClick={onAllow}>
           <span className="umc-install-ring-bell" aria-hidden="true"><Glyph name="phone-vibrate" /></span>
-          Ring my reminders
+          Enable Reminders
         </button>
       )}
       {last && mode === 'blocked' && (

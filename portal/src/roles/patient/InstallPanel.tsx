@@ -118,10 +118,10 @@ function panelFor(os: InstallOs, browser: Browser, safari: number | null, before
   const webAppStep = <>Make sure <strong>Open as Web App</strong> <Glyph name="toggle" /> is switched on, then tap <strong>Add</strong>.</>
   const device = os === 'ipad' ? 'iPad' : 'iPhone'
   // The notifications prompt only appears inside the installed app, after the
-  // patient taps the page's own "Ring my reminders" button. Without Allow,
+  // patient taps the page's own "Enable Reminders" button. Without Allow,
   // everything before it was for nothing.
   const allowStep = (on: string) =>
-    <>In the app, tap <strong>Ring my reminders</strong> <Glyph name="phone-vibrate" />, then tap <strong>Allow</strong> when your {on} asks to send notifications.</>
+    <>In the app, tap <strong>Enable Reminders</strong> <Glyph name="phone-vibrate" />, then tap <strong>Allow</strong> when your {on} asks to send notifications.</>
 
   // Every other iOS browser puts Share somewhere different, and some let the
   // patient move it. Send them to the one whose steps are known.

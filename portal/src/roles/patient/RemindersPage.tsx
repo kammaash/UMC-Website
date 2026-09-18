@@ -60,7 +60,7 @@ const OTHER_ACCOUNT_MSG =
 type PushState =
   | { kind: 'checking' }
   | { kind: 'gate'; gate: 'ios-add-to-home' | 'ios-too-old' | 'unsupported' }
-  | { kind: 'prompt' }        // permission not asked yet → "Ring my reminders" button (needs a tap)
+  | { kind: 'prompt' }        // permission not asked yet → "Enable Reminders" button (needs a tap)
   | { kind: 'denied'; stillBlocked?: boolean }  // permission refused in the browser; stillBlocked after a re-check
   | { kind: 'registering' }
   | { kind: 'enabled' }
@@ -449,7 +449,7 @@ export function RemindersPage() {
             <p className="umc-rem-lead">Last step: let this phone ring for your medicines. Tap below, then tap <strong>Allow</strong>.</p>
             <button type="button" className="umc-btn primary full big umc-install-ring" onClick={handleAllow}>
               <span className="umc-install-ring-bell" aria-hidden="true"><Glyph name="phone-vibrate" /></span>
-              Ring my reminders
+              Enable Reminders
               <span className="umc-rem-btn-arrow"><Icon name="chevronRight" size={20} /></span>
             </button>
           </>

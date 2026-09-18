@@ -21,7 +21,7 @@ export const GLYPH_PATHS: Record<GlyphName, string[]> = {
   // two sliders — the site-settings button beside the address on Android Chrome
   tune: ['M4 8 H7', 'M11 8 H20', 'M11 8 A2 2 0 1 1 10.99 8', 'M4 16 H13', 'M17 16 H20', 'M17 16 A2 2 0 1 1 16.99 16'],
   // a phone, buzzing — a rounded outline with a motion arc either side. Our
-  // stand-in for the 🔔 emoji: "Ring my reminders" turns the phone on, not a
+  // stand-in for the 🔔 emoji: "Enable Reminders" turns the phone on, not a
   // bell, and it's what the status badge in the header points to as well.
   'phone-vibrate': [
     'M9 3.5 H15 Q17 3.5 17 5.5 V18.5 Q17 20.5 15 20.5 H9 Q7 20.5 7 18.5 V5.5 Q7 3.5 9 3.5 Z',

@@ -1,0 +1,806 @@
+/* RemindersPage.css — the patient reminders page at /reminders/.
+   Restyled 2026-09-17 to match the doctor login page's look (LoginPage.tsx):
+   all-black background, DM Serif Text headings, Inter body, JetBrains Mono
+   eyebrows, a single green (#34C759) accent reserved for the one thing that
+   needs to stand out. Same family, same screen. Laid out for one hand on a
+   phone, though — one column, big tap targets, no hover-only affordances —
+   not Login's centred desktop panel. */
+
+.umc-rem-root {
+  --col-max: 480px;
+  --green: #34c759;
+
+  /* Re-theme the shared design tokens (tokens.css / neo.css) from the app's
+     light neumorphic palette to Login's dark one. Every component built on
+     top of them — .umc-btn, .umc-badge, .umc-card, .umc-empty, .umc-spin —
+     repaints for free; nothing outside this page is touched. */
+  --surface: #0b0b0b;
+  --bg: #0b0b0b;
+  --card: #161618;
+  --surface-2: #161618;
+  --bg-2: #161618;
+  --surface-sunken: #1d1d21;
+  --ink: #f3f3f3;
+  --ink-soft: rgba(243, 243, 243, 0.55);
+  --ink-faint: rgba(243, 243, 243, 0.4);
+  --line: rgba(230, 230, 230, 0.1);
+  --line-2: rgba(230, 230, 230, 0.06);
+  --line-3: rgba(230, 230, 230, 0.18);
+
+  --success-600: var(--green);
+  --success-50: rgba(52, 199, 89, 0.1);
+  --success-100: rgba(52, 199, 89, 0.3);
+  --success-900: var(--green);
+  --error: #ff6b60;
+  --error-50: rgba(255, 69, 58, 0.09);
+  --error-100: rgba(255, 69, 58, 0.34);
+  --warning-700: #ffb454;
+
+  /* Neumorphism reads as a bevel on a mid-grey surface; on true black it's
+     just noise. Swap it for flat dark cards: a hairline border for edge
+     definition, a soft black drop shadow for lift. */
+  --neo-raised: 0 10px 26px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --neo-raised-strong: 0 0 0 1px rgba(52, 199, 89, 0.35), 0 14px 34px rgba(0, 0, 0, 0.55);
+  --neo-input: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 0 0 1px rgba(230, 230, 230, 0.05);
+  --neo-pressed: inset 0 1px 4px rgba(0, 0, 0, 0.5);
+  --neo-cta: 0 6px 18px rgba(52, 199, 89, 0.32);
+
+  /* The medication tiles get the REAL thing instead — TabletTile's own dual
+     shadow pair (a dark cast shadow down-right, a light rim up-left), tuned
+     for near-black: the "light" side can't be a literal grey highlight (that
+     would smudge on black) so it's a faint white glow instead — the same
+     halo-not-bevel effect the app's own dark theme gets, since its shadow
+     colours end up lighter than its darker page background too. */
+  --neo-tile-raised:
+    7px 8px 18px rgba(0, 0, 0, 0.55),
+    -5px -5px 14px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --neo-tile-raised-strong:
+    9px 10px 24px rgba(0, 0, 0, 0.6),
+    -6px -6px 16px rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(52, 199, 89, 0.4);
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+  padding: max(20px, env(safe-area-inset-top)) clamp(16px, 5vw, 24px) calc(max(24px, env(safe-area-inset-bottom)) + var(--umc-reveal-room, 0px));
+}
+
+/* same grain texture as the login page, for the same reason: a pure flat
+   black reads cheap on an OLED phone screen; this breaks it up almost
+   subliminally. */
+.umc-rem-root::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+/* Lift real content above the grain texture — but never a fixed-position
+   full-screen overlay (OTP modal, the unregistered takeover, the account
+   sheet, the name→avatar morph clone): downgrading those to `relative`
+   breaks them out of viewport-fixed positioning. */
+.umc-rem-root > *:not(.umc-otp-overlay):not(.umc-unreg-overlay):not(.umc-overlay):not(.umc-rem-morph-clone) { position: relative; z-index: 1; }
+
+/* ── brand row ─────────────────────────────────────────────────── */
+.umc-rem-brand {
+  width: 100%; max-width: var(--col-max); margin: 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.26em; text-transform: uppercase; color: var(--ink-faint);
+}
+.umc-rem-brand img { width: 26px; height: 26px; filter: invert(1); opacity: 0.9; }
+
+/* ── the live reminders-status light (top right, beside the corner) ──────
+   A passive readout, not a control — green once push is actually enabled
+   (or the app owns it instead), red the moment it's known to be off
+   (denied / gated / erroring). Hidden entirely until push has resolved one
+   way or the other, same as the corner name/avatar sequence.
+   .is-peeked (RemindersPage.tsx passes morph.peeking straight through):
+   the peeked name slides out from behind the avatar into this same spot
+   (.umc-rem-corner-name.is-tuck.is-peek) — but it's the full name now, so
+   its width varies too much to just slide the light a matching fixed
+   distance and trust it clears. Fading it out at the same time is what
+   actually guarantees no overlap, whatever the name's length; the slide
+   stays alongside it so the two still read as one motion. */
+.umc-rem-status {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto; color: var(--ink-faint);
+  transform: translateX(0); opacity: 1;
+  transition: color 0.3s var(--ease-out), transform 0.35s var(--ease-out), opacity 0.3s var(--ease-out);
+}
+.umc-rem-status .umc-glyph { width: 20px; height: 20px; margin: 0; color: inherit; }
+.umc-rem-status .umc-glyph svg { width: 100%; height: 100%; }
+.umc-rem-status.is-peeked { transform: translateX(-16px); opacity: 0; pointer-events: none; }
+.umc-rem-status.is-on { color: var(--green); }
+.umc-rem-status.is-off { color: var(--error); }
+
+/* ── everything that lives at the top right once claimed: the live push
+   status light, then the corner (name → avatar). One flex group so a single
+   margin-left: auto pushes the whole cluster to the brand row's right edge
+   — the corner itself no longer carries that margin. */
+.umc-rem-brand-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+
+/* ── the claimed screen's corner: the greeting's name lands here
+   (useGreetingMorph.ts), rests a moment, then swaps for the account avatar.
+   Both the resting name-label and the avatar sit at this same anchor (top
+   right, inline with the logo) so the handoff between them is a crossfade,
+   not a layout jump. */
+.umc-rem-corner { position: relative; width: 30px; height: 30px; flex: 0 0 auto; }
+/* same font + colour the name had in the heading (.umc-rem-hdg: var(--serif),
+   var(--ink)) — just the shrunk size, and reduced to its initial. */
+.umc-rem-corner-name {
+  position: absolute; top: 50%; right: 0; max-width: 220px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none;
+  font-family: var(--serif); font-size: 13px; font-weight: 400; color: var(--ink);
+  transform: translateY(-50%); opacity: 1;
+  transition: opacity 0.35s var(--ease-out), right 0.35s var(--ease-out);
+}
+/* tucked behind the (now-visible) avatar — invisible until peeked */
+.umc-rem-corner-name.is-tuck { opacity: 0; }
+/* Peeked: the FULL name now (not just the initial), so its width varies a
+   lot from one patient to the next. `right: 100%` pins the box's right
+   edge to .umc-rem-corner's own left edge — 30px, the corner's fixed
+   width, never the name's — and an unset `left` lets the box grow further
+   left to fit whatever the name needs. That reveals any length correctly
+   without guessing a pixel offset; only the max-width/ellipsis above caps
+   it for a truly long one. */
+.umc-rem-corner-name.is-tuck.is-peek { opacity: 1; right: calc(100% + 8px); pointer-events: auto; }
+
+.umc-rem-account-btn {
+  position: absolute; top: 0; right: 0; width: 30px; height: 30px; padding: 0;
+  display: grid; place-items: center; border-radius: 999px; cursor: pointer; overflow: hidden;
+  background: var(--card); border: 1px solid var(--line); color: var(--ink-soft);
+  box-shadow: var(--neo-raised);
+  opacity: 0; transform: scale(0.5);
+  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out), box-shadow 0.18s ease;
+}
+.umc-rem-account-btn.is-shown { opacity: 1; transform: scale(1); }
+.umc-rem-account-btn:hover { box-shadow: var(--neo-raised-strong); }
+.umc-rem-account-btn:active { transform: scale(0.92); box-shadow: var(--neo-pressed); }
+.umc-rem-account-btn:focus-visible { outline: 2px solid var(--ink-soft); outline-offset: 2px; }
+.umc-rem-avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 999px; }
+/* the app's own Account/Edit Profile screen fallback: an initial letter,
+   not a person icon and not the drawer's 3D pill — see AccountAvatar.tsx. */
+.umc-rem-avatar-fallback { font-family: var(--serif); font-size: 13px; color: var(--ink); }
+
+/* the flying clone (useGreetingMorph.ts): starts exactly over the real
+   heading name (same font/colour, copied via getComputedStyle) and just
+   travels + shrinks to the corner — colour never changes, so the handoff
+   to the resting corner-name (same var(--ink)) is seamless. */
+.umc-rem-morph-clone {
+  position: fixed; transform-origin: top left; white-space: nowrap;
+  pointer-events: none; z-index: 60;
+  transform: translate(0, 0) scale(1);
+  transition: transform 0.56s var(--ease-out);
+}
+.umc-rem-morph-clone.is-flying { transform: translate(var(--dx), var(--dy)) scale(var(--s)); }
+
+/* ── the setup confirmation collapses once reminders are actually on ──────
+   (RemindersPage.tsx: .is-tucked when settled && the corner/avatar phase
+   has been reached). Denied/gated/erroring states are never wrapped in
+   this, so they stay put — only the "you're done" banners tuck away. */
+.umc-rem-setup-collapse {
+  display: grid; grid-template-rows: 1fr; opacity: 1;
+  transition: grid-template-rows 0.4s var(--ease-out), opacity 0.3s var(--ease-out), margin-top 0.4s var(--ease-out);
+}
+.umc-rem-setup-collapse > * { overflow: hidden; min-height: 0; }
+.umc-rem-setup-collapse.is-tucked { grid-template-rows: 0fr; opacity: 0; margin-top: -16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .umc-rem-corner-name, .umc-rem-account-btn, .umc-rem-morph-clone, .umc-rem-setup-collapse, .umc-rem-status { transition: none; }
+}
+
+/* ── main column ───────────────────────────────────────────────── */
+.umc-rem-main {
+  flex: 1; width: 100%; max-width: var(--col-max); margin: 0 auto;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: 16px; padding: 28px 0 20px;
+}
+.umc-rem-main > * { opacity: 0; animation: umc-rem-up 0.55s var(--ease-out) forwards; }
+.umc-rem-main > *:nth-child(1) { animation-delay: .03s; }
+.umc-rem-main > *:nth-child(2) { animation-delay: .09s; }
+.umc-rem-main > *:nth-child(3) { animation-delay: .15s; }
+.umc-rem-main > *:nth-child(4) { animation-delay: .21s; }
+.umc-rem-main > *:nth-child(5) { animation-delay: .27s; }
+.umc-rem-main > *:nth-child(n+6) { animation-delay: .33s; }
+@keyframes umc-rem-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .umc-rem-main > * { animation: none; opacity: 1; } }
+
+.umc-rem-eyebrow {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.26em; text-transform: uppercase; color: var(--ink-faint); margin: 0;
+}
+.umc-rem-hdg {
+  font-family: var(--serif); font-weight: 400; color: var(--ink);
+  font-size: clamp(30px, 8.5vw, 38px); line-height: 1.08; letter-spacing: -0.01em; margin: 0;
+}
+.umc-rem-lead { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0; }
+.umc-rem-lead strong { color: var(--ink); font-weight: 600; }
+
+/* ── buttons: neo.css .umc-btn does the work; page-level spacing + the
+   one accent colour this page is allowed to spend ── */
+.umc-rem-root .umc-btn.full { width: 100%; }
+.umc-rem-root .umc-btn .umc-rem-btn-arrow { margin-left: auto; opacity: .7; }
+.umc-rem-root .umc-btn.primary {
+  background: var(--green); color: #04280e; box-shadow: var(--neo-cta);
+}
+.umc-rem-root .umc-btn.primary.big { height: 58px; font-size: 17px; border-radius: var(--r-lg); }
+.umc-rem-root .umc-btn.ghost {
+  color: var(--ink-soft); background: transparent; border: 1px solid var(--line); box-shadow: none;
+}
+.umc-rem-root .umc-btn.ghost:hover { background: rgba(255, 255, 255, 0.04); }
+.umc-rem-root .umc-btn .umc-spin { width: 18px; height: 18px; border-width: 2px; }
+
+/* ── the dashboard only (claimed screen): the app's own button metrics
+   (AppButtonStyles) — full-width default 56/16, the one primary CTA per
+   screen 60/20. Scoped here so the welcome/OTP/confirm screens, which
+   share the same .umc-btn classes, are untouched. */
+.umc-rem-dash .umc-btn.full:not(.sm) { height: 56px; border-radius: var(--r-lg); }
+.umc-rem-dash .umc-btn.primary.big { height: 60px; border-radius: var(--r-xl); }
+
+.umc-rem-note {
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--ink-faint);
+  margin: 0; text-align: center;
+}
+
+/* status / error banners — same recipe as the login page's own error tone */
+.umc-rem-error {
+  display: flex; gap: 10px; align-items: flex-start;
+  font-family: var(--sans); font-size: 13.5px; font-weight: 500; line-height: 1.45;
+  color: var(--error); background: var(--error-50);
+  border: 1px solid var(--error-100); border-radius: var(--r-md); padding: 12px 14px; margin: 0;
+}
+.umc-rem-error svg { flex: 0 0 18px; margin-top: 1px; }
+.umc-rem-ok {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--success-50); border: 1px solid var(--success-100);
+  border-radius: var(--r-lg); padding: 14px 16px;
+  color: var(--green); font-size: 14.5px; line-height: 1.45; font-weight: 500;
+}
+.umc-rem-ok svg { flex: 0 0 22px; color: var(--green); }
+
+/* ── cards ─────────────────────────────────────────────────────── */
+.umc-rem-card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r-section); box-shadow: var(--neo-raised);
+  padding: 20px 20px; display: flex; flex-direction: column; gap: 6px;
+}
+.umc-rem-card-label { font-family: var(--mulish); font-size: 13px; font-weight: 600; color: var(--ink-soft); margin: 0; }
+.umc-rem-card-value { font-family: var(--serif); font-size: 22px; color: var(--ink); margin: 0; letter-spacing: 0.01em; }
+.umc-rem-card-name { font-size: 28px; line-height: 1.15; }
+.umc-rem-card-sub { font-family: var(--sans); font-size: 13.5px; color: var(--ink-soft); margin: 0; line-height: 1.5; }
+
+/* numbered steps (Add to Home Screen / Add to Dock) */
+.umc-rem-steps { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.umc-rem-steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 14.5px; line-height: 1.5; color: var(--ink); }
+.umc-rem-steps li > span:first-child {
+  flex: 0 0 26px; height: 26px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--serif); font-size: 14px; color: var(--ink); background: var(--card);
+  border: 1px solid var(--line-3);
+}
+.umc-rem-steps li strong { font-weight: 700; }
+
+.umc-rem-loading {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  color: var(--ink-faint); font-family: var(--sans); font-size: 13px;
+}
+.umc-rem-foot {
+  width: 100%; max-width: var(--col-max); margin: 12px auto 0;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-faint); text-align: center;
+}
+.umc-rem-foot a { color: var(--ink-soft); text-decoration: none; transition: color 0.2s ease; }
+.umc-rem-foot a:hover { color: var(--ink); }
+
+/* ── today's doses ─────────────────────────────────────────────── */
+.umc-rem-today { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.umc-rem-today-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.umc-rem-today-title { font-family: var(--serif); font-size: 18px; font-weight: 400; color: var(--ink); margin: 0; }
+.umc-rem-today-count { font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--ink-faint); margin: 0; white-space: nowrap; }
+.umc-rem-doses { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
+/* The tile IS the tap target — TabletTile's own GestureDetector-wrapped
+   AnimatedContainer, ported: the whole card presses (60ms squash, shadow
+   drops out) on tap, no separate button, and a taken tile stays exactly as
+   raised as a pending one — only its text colour + strikethrough change. */
+.umc-rem-dose {
+  display: block; width: 100%; text-align: left; font: inherit; appearance: none;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r-xl); padding: 14px 16px;
+  box-shadow: var(--neo-tile-raised);
+  transition: transform 60ms ease-in-out, box-shadow 60ms ease-in-out, border-color 0.3s ease;
+  cursor: pointer;
+}
+.umc-rem-dose:disabled { cursor: default; }
+.umc-rem-dose:active:not(:disabled) { transform: scale(0.98); box-shadow: none; }
+.umc-rem-dose:focus-visible { outline: 2px solid var(--ink-soft); outline-offset: 2px; }
+.umc-rem-dose.is-highlight { border-color: rgba(52, 199, 89, 0.45); box-shadow: var(--neo-tile-raised-strong); }
+
+/* Terminal warning states use the app's status palette on the whole tile,
+   not only its text: yellow for taken late, red for missed. The slim inset
+   accent stays legible without turning a dark-theme tile into a solid block. */
+.umc-rem-dose.is-taken_late,
+.umc-rem-dose.is-missed {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 58%),
+    var(--card);
+}
+.umc-rem-dose.is-taken_late::before,
+.umc-rem-dose.is-missed::before {
+  content: '';
+  position: absolute; inset: 0 auto 0 0; width: 4px;
+  background: var(--accent);
+}
+
+/* Title colour + strikethrough carry the whole status (TabletTile's
+   _getTextColor / _shouldStrikethrough) — --accent is set inline per tile
+   from the app's own status colours; pending/due/upcoming just stay ink. */
+.umc-rem-dose-name {
+  font-family: var(--sans); font-size: 15px; font-weight: 700; line-height: 1.3;
+  overflow-wrap: anywhere; color: var(--accent, var(--ink));
+  display: flex; align-items: center; gap: 8px;
+}
+.umc-rem-dose.is-taken .umc-rem-dose-name, .umc-rem-dose.is-taken_late .umc-rem-dose-name {
+  text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--accent);
+}
+.umc-rem-dose-sub {
+  margin-top: 4px; font-size: 12.5px; color: color-mix(in srgb, var(--accent, var(--ink-soft)) 70%, transparent);
+}
+.umc-rem-dose.is-taken .umc-rem-dose-sub, .umc-rem-dose.is-taken_late .umc-rem-dose-sub {
+  text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--accent);
+}
+.umc-rem-dose-noremind { color: var(--ink-faint); }
+.umc-rem-dose-err { margin-top: 6px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--error); }
+
+/* ── "you're not registered" takeover ─────────────────────────────
+   A full-screen overlay, not a banner: the welcome screen underneath is
+   fully hidden, not just captioned. Same fixed-overlay technique as the
+   OTP modal, one z-index higher so it always wins if both are ever briefly
+   mounted together. */
+.umc-unreg-overlay {
+  --cartoon: 'Luckiest Guy', 'Fredoka', 'Inter', system-ui, sans-serif;
+  --rounded: 'Fredoka', 'Inter', system-ui, sans-serif;
+  /* accent: the page green for the title + button; white for the note */
+  --acc: var(--green);
+  --acc-deep: #1f7a35;
+  --acc-ink: #04280e;
+  position: fixed; inset: 0; z-index: 210;
+  /* no card: the welcome screen stays visible behind, blurred and dimmed,
+     and the content sits straight on it. The blur is applied to the page
+     content itself (.is-blurred below) rather than as a backdrop-filter —
+     `filter` works everywhere, backdrop-filter still doesn't. */
+  background: rgba(5, 5, 5, 0.72);
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100dvh;
+  padding: max(20px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  overflow-x: hidden; overflow-y: auto;
+  opacity: 0; animation: umc-unreg-scrim-in 0.35s var(--ease-out) forwards;
+}
+@keyframes umc-unreg-scrim-in { to { opacity: 1; } }
+.umc-rem-root > :not(.umc-unreg-overlay):not(.umc-otp-overlay) { transition: filter 0.4s var(--ease-out); }
+.umc-rem-root.is-blurred > :not(.umc-unreg-overlay):not(.umc-otp-overlay) { filter: blur(16px); }
+
+.umc-unreg-body {
+  width: 100%; max-width: 380px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  text-align: center;
+}
+
+/* Keep the takeover usable on compact phones, landscape phones and large
+   accessibility text. The content may scroll instead of being clipped. */
+@media (max-width: 480px) {
+  .umc-unreg-body { max-width: 340px; gap: 12px; }
+  .umc-unreg-hdg { font-size: clamp(52px, 18vw, 68px); }
+  .umc-unreg-lead { font-size: clamp(18px, 5.5vw, 21px); }
+  .umc-unreg-soon { gap: 12px; padding: 24px 14px 16px; }
+  .umc-unreg-soon-logo { width: 52px; height: 52px; border-radius: 12px; }
+  .umc-unreg-btn { height: 56px; }
+}
+
+@media (max-height: 680px) {
+  .umc-unreg-overlay { align-items: flex-start; }
+  .umc-unreg-body { gap: 9px; margin: auto 0; }
+  .umc-unreg-hdg { font-size: 52px; }
+  .umc-unreg-lead { font-size: 18px; }
+  .umc-unreg-sub { font-size: 13px; line-height: 1.4; }
+  .umc-unreg-soon { margin-top: 12px; padding-top: 22px; padding-bottom: 13px; }
+  .umc-unreg-soon-logo { width: 46px; height: 46px; }
+  .umc-unreg-soon p { font-size: 12.5px; line-height: 1.35; }
+  .umc-unreg-btn { height: 52px; }
+}
+/* staggered entrance: the emoji drops in, the title snaps in, the rest floats up */
+.umc-unreg-body > * { opacity: 0; animation: umc-unreg-float 0.5s var(--ease-out) forwards; }
+.umc-unreg-body > .umc-unreg-lead  { animation-delay: 0.45s; }
+.umc-unreg-body > .umc-unreg-sub   { animation-delay: 0.55s; }
+.umc-unreg-body > .umc-unreg-soon  { animation-delay: 0.65s; }
+.umc-unreg-body > .umc-unreg-btn   { animation-delay: 0.75s; }
+@keyframes umc-unreg-float {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* comic-lettering title: chunky face, tilted, with a hard offset shadow in
+   the app's greys like an inked sticker */
+.umc-unreg-hdg {
+  font-family: var(--cartoon); font-weight: 400; color: #fff;
+  font-size: 72px; line-height: 1; margin: 0 0 2px;
+  letter-spacing: 0.04em; transform: rotate(-4deg);
+  text-shadow: 3px 3px 0 var(--acc-deep), 6px 6px 0 var(--acc), 9px 9px 0 rgba(0, 0, 0, 0.6);
+  animation: umc-unreg-snap 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+}
+@keyframes umc-unreg-snap {
+  from { opacity: 0; transform: rotate(-4deg) scale(0.4); }
+  to   { opacity: 1; transform: rotate(-4deg) scale(1); }
+}
+.umc-unreg-lead { font-family: var(--rounded); font-size: 21px; font-weight: 600; color: #fff; margin: 0; letter-spacing: 0.01em; }
+.umc-unreg-sub { font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink-soft); margin: 0; }
+
+/* the "coming soon" note: a dashed ticket outline, no fill, with a tilted
+   sticker badge peeking over its top edge */
+/* app icon on the left, the note beside it, left-aligned — the sticker
+   badge straddles the top edge */
+.umc-unreg-soon {
+  position: relative; width: 100%; margin-top: 18px;
+  display: flex; flex-direction: row; align-items: center; gap: 16px;
+  text-align: left;
+  border: 2px dashed rgba(255, 255, 255, 0.45);
+  border-radius: var(--r-lg); padding: 26px 18px 20px;
+}
+.umc-unreg-soon-logo { flex: 0 0 auto; }
+.umc-unreg-soon p { flex: 1; min-width: 0; }
+.umc-unreg-soon-badge {
+  position: absolute; top: -14px; left: 50%;
+  transform: translateX(-50%) rotate(-3deg);
+  font-family: var(--rounded); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: #1a1a1a; background: #fff;
+  border-radius: var(--r-pill); padding: 5px 14px;
+  box-shadow: 0 3px 0 #9e9e9e;
+}
+/* the app's icon as it'll sit on a home screen: the logo's own white tile */
+.umc-unreg-soon-logo {
+  width: 60px; height: 60px; border-radius: 14px; background: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.umc-unreg-soon p { font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
+
+/* chunky 3-D button in the app's light grey: hard shadow that squashes on press */
+.umc-unreg-btn {
+  width: 100%; margin-top: 6px; border: none; cursor: pointer;
+  font-family: var(--serif); font-size: 19px; font-weight: 400; letter-spacing: 0.01em;
+  color: var(--acc-ink); background: var(--acc);
+  border-radius: var(--r-pill); height: 60px;
+  box-shadow: 0 6px 0 var(--acc-deep), 0 14px 28px rgba(0, 0, 0, 0.45);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.2s ease;
+}
+.umc-unreg-btn:hover { background: #3fd465; }
+.umc-unreg-btn:active { transform: translateY(5px); box-shadow: 0 1px 0 var(--acc-deep), 0 6px 14px rgba(0, 0, 0, 0.45); }
+.umc-unreg-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .umc-unreg-overlay, .umc-unreg-body > *, .umc-unreg-hdg { animation: none; opacity: 1; }
+}
+
+/* ── install panel (InstallPanel.tsx) ───────────────────────────────
+   In UMC's own palette — the app's and the marketing site's monochrome:
+   UMC light (#f3f3f3) on black, greys between. Green on this page stays the
+   sign-in button's alone; the install process never borrows it. The pencil
+   line is .umc-sketch below — pinned to the screen, not the card. */
+.umc-install-card,
+.umc-install-pill {
+  --umc-light: #f3f3f3;      /* marketing --bg family / app surface       */
+  --umc-black: #0b0b0b;      /* marketing --black                         */
+  --umc-grey: #bdbdbd;       /* app grey.400                              */
+  --umc-rule: rgba(243, 243, 243, 0.14);
+}
+.umc-install-card {
+  position: relative;
+  border-radius: 22px;
+  padding: 18px 18px 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    var(--card);
+  border: 1px solid var(--umc-rule);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  /* overrides the column's shared stagger (.umc-rem-main > *) on purpose —
+     this one arrives with a spring instead of a fade-up. */
+  opacity: 0;
+  animation: umc-install-pop 0.5s cubic-bezier(0.22, 1.2, 0.36, 1) forwards;
+}
+
+.umc-install-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.umc-install-label {
+  font-family: var(--serif); font-weight: 400; font-size: 19px; line-height: 1.25;
+  letter-spacing: -0.005em; color: var(--ink); margin: 0;
+}
+
+.umc-install-x {
+  flex: 0 0 auto; width: 30px; height: 30px; padding: 0;
+  display: grid; place-items: center;
+  border-radius: 50%; border: 1px solid var(--line); background: transparent;
+  color: var(--ink-soft); font-size: 19px; line-height: 1; cursor: pointer;
+  transform-origin: center;
+  transition: transform 0.18s var(--ease-out), color 0.18s, border-color 0.18s, background 0.18s;
+}
+/* A pure spin — no scale riding along, so it turns on the spot rather than
+   also growing/drifting. A press keeps the same rotation and only adds the
+   squash, so hovering while tapping never snaps between two different
+   transforms. Same red accent as the pill's caret, on the × itself: this is
+   the button's own hover state, independent of how the card got here
+   (auto-open, a tap on the pill, or a Mac's no-hold open). */
+.umc-install-x:hover { color: var(--error); border-color: var(--line-3); transform: rotate(90deg); }
+.umc-install-x:active { transform: scale(0.82); }
+.umc-install-x:hover:active { transform: rotate(90deg) scale(0.82); }
+
+/* Numbered discs earn their place here: this genuinely is a sequence, and a
+   patient reads it one step at a time with the phone in the other hand. */
+.umc-install-steps { list-style: none; margin: 15px 0 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+.umc-install-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.umc-install-num {
+  flex: 0 0 26px; height: 26px; border-radius: 50%;
+  background: var(--umc-light); color: var(--umc-black);
+  font-family: var(--sans); font-weight: 700; font-size: 14px; line-height: 26px; text-align: center;
+}
+.umc-install-body { font-family: var(--sans); font-size: 14.5px; line-height: 1.55; color: var(--ink); min-width: 0; }
+.umc-install-body strong { font-weight: 700; color: #fff; }
+.umc-step-line { display: block; }
+.umc-step-line + .umc-step-line { margin-top: 0.42em; }
+.umc-step-note { color: var(--ink-soft); }
+
+/* One step at a time (InstallPanel.tsx). A new step slides in below the last;
+   a finished one stays, ticked and quietened, so the route so far is still
+   readable but the eye goes to the step being worked on. */
+.umc-install-steps li.is-active { animation: umc-install-step-in 0.35s var(--ease-out) both; }
+.umc-install-steps li.is-done .umc-install-body { color: var(--ink-soft); }
+.umc-install-steps li.is-done .umc-install-body strong { color: var(--ink-soft); }
+.umc-install-num[data-done] {
+  background: transparent; color: var(--umc-grey);
+  box-shadow: inset 0 0 0 2px rgba(243, 243, 243, 0.4);
+  font-size: 13px;
+}
+/* The foot: where the patient is on the left, Next on the right — the same
+   place for every step. Next is UMC's primary button turned for a dark
+   page: UMC light, black text (the app's is dark ink on light grey). */
+.umc-install-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--umc-rule);
+}
+.umc-install-count { font-family: var(--sans); font-size: 13px; color: var(--ink-soft); }
+/* on the right even when it is alone in the foot */
+.umc-install-next { margin-left: auto; }
+.umc-install-next {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 42px; padding: 0 20px; border: 0; border-radius: 999px;
+  background: var(--umc-light); color: var(--umc-black);
+  font-family: var(--sans); font-weight: 700; font-size: 15px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  cursor: pointer; transition: transform 0.1s, background 0.15s;
+}
+.umc-install-next span { font-size: 15px; }
+.umc-install-next:hover { background: #ffffff; }
+.umc-install-next:active { transform: scale(0.96); }
+.umc-install-next:disabled { cursor: default; }
+.umc-install-next:focus-visible { outline: 2px solid var(--umc-light); outline-offset: 3px; }
+@keyframes umc-install-step-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+/* ── the pencil line (SketchLine.tsx) ──────────────────────────────
+   A full-screen overlay, portalled to <body> — none of the .umc-rem-root
+   tokens reach it, so its colour is spelled out: UMC light, as graphite on
+   a blackboard. Under the OTP modal (200)
+   and the takeover (210); never takes a tap.
+   Drawn once, in order: a ring round the step's bullet, the line out of it
+   to the button, the arrowhead, then the button's symbol beside it. Every stroke is pathLength=100, so 100
+   is a whole stroke. Nothing loops. */
+.umc-sketch {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  z-index: 30; pointer-events: none; overflow: visible; color: #e6e6e6;
+}
+.umc-sketch-ring,
+.umc-sketch-line,
+.umc-sketch-head,
+/* Hidden until drawn. The offset runs one past the path length (and the gap
+   is longer than the path) so no zero-length dash is left at the start —
+   with round caps that would show as a dot before the drawing starts. */
+.umc-sketch-glyph { stroke-dasharray: 100 110; stroke-dashoffset: 101; }
+/* The drawing begins 1s after the panel opens (or is reopened from the
+   pill) — time to read the steps first; each stroke follows on from there. */
+.umc-sketch { --umc-sketch-start: 1s; }
+.umc-sketch-ring { animation: umc-sketch-draw 0.4s ease-in var(--umc-sketch-start) forwards; }
+/* The line is long (often most of the screen's perimeter), so it gets time
+   and a gentle, even ease — a sharp ease-in-out made it leap tens of pixels a
+   frame through the middle, which read as jerky. */
+.umc-sketch-line { animation: umc-sketch-draw 1.7s cubic-bezier(0.33, 0.1, 0.3, 1) calc(var(--umc-sketch-start) + 0.36s) forwards; }
+.umc-sketch-head { animation: umc-sketch-draw 0.26s ease-out calc(var(--umc-sketch-start) + 2.02s) forwards; }
+/* last, the symbol waiting at that edge, pencilled beside the arrowhead */
+.umc-sketch-glyph { animation: umc-sketch-draw 0.5s ease-in-out calc(var(--umc-sketch-start) + 2.25s) forwards; }
+.umc-sketch-glyph-bg {
+  fill: #0b0b0b; opacity: 0;
+  animation: umc-sketch-fade 0.25s ease-out calc(var(--umc-sketch-start) + 2.2s) forwards;
+}
+/* room at the foot of the page so, scrolled to the end, the last button and
+   the footer sit clear of the line's lane along the bottom edge */
+:root[data-umc-sketch^='bottom'] .umc-rem-root {
+  padding-bottom: calc(max(24px, env(safe-area-inset-bottom)) + 52px + var(--umc-reveal-room, 0px));
+}
+
+/* collapsed: never gone, always one tap from coming back */
+.umc-install-pill {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 11px 16px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(243, 243, 243, 0.22);
+  color: var(--umc-light); font-family: var(--sans); font-weight: 600; font-size: 14.5px; line-height: 1;
+  cursor: pointer;
+  animation: umc-install-popin 0.38s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  transition: background 0.18s, border-color 0.18s;
+}
+.umc-install-pill:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(243, 243, 243, 0.4); }
+/* The closing card has already animated into this exact pill. Mount it at
+   full opacity/scale so the handoff is visually continuous, rather than
+   replaying pop-in from opacity zero and flashing the background through. */
+.umc-install-pill.is-morph-settled { animation: none; opacity: 1; transform: none; }
+/* The caret is the one hint that tapping the pill opens something — on
+   hover it picks up the page's one red accent so that hint reads as live. */
+.umc-install-pill-caret { font-size: 12px; opacity: 0.75; transition: color 0.18s, opacity 0.18s; }
+.umc-install-pill:hover .umc-install-pill-caret,
+.umc-install-pill:focus-visible .umc-install-pill-caret { color: var(--error); opacity: 1; }
+.umc-install-pill-bell { font-size: 15px; transform-origin: 50% 12%; animation: umc-install-shake 2.8s ease-in-out infinite; }
+
+/* Android / desktop: the permission prompt has to come from a tap, so the
+   button is the moment. The bell rings every few seconds rather than
+   jittering constantly. */
+.umc-rem-root .umc-btn.umc-install-ring { gap: 10px; }
+.umc-install-ring-bell { font-size: 19px; transform-origin: 50% 12%; animation: umc-install-shake 2.6s ease-in-out infinite; }
+
+.umc-install-card.is-closing { animation: umc-install-shrink 0.32s ease-in forwards; }
+/* Measured, never seen (InstallPanel's ghostPill): out of flow so it never
+   nudges the card's own layout, and its own entrance animation is switched
+   off so a getBoundingClientRect() mid-pop-in never hands back a shrunken
+   rect — morphToPill needs its true resting size. */
+.umc-install-pill-ghost { position: absolute; top: 0; left: 0; visibility: hidden; pointer-events: none; animation: none; }
+/* RevealSetup scrolls the card up to here: clear of the notch/status bar */
+.umc-reveal { display: contents; }
+/* growing out of the pill (InstallPanel's morphFromPill): the script drives
+   the shape, so the spring-in steps aside and the content is kept inside */
+.umc-install-card.is-morphing { animation: none; opacity: 1; overflow: hidden; }
+/* ...and stays out of the way once grown. Just dropping .is-morphing would
+   hand the card back its spring-in, which restarts from opacity 0 — the
+   whole card blinked out and back just as the pencil line began. */
+.umc-install-card.is-morphed:not(.is-closing) { animation: none; opacity: 1; }
+.umc-install-card { scroll-margin-top: max(12px, env(safe-area-inset-top)); }
+
+/* Android's notification steps (NotifyPanel) — same card, the real button
+   under the foot instead of a Done. */
+.umc-notify-action { margin-top: 16px; }
+.umc-notify-still { margin: 14px 0 0; font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: var(--ink); }
+
+.umc-install-x:focus-visible,
+.umc-install-pill:focus-visible { outline: 2px solid var(--umc-light); outline-offset: 3px; }
+
+@keyframes umc-install-pop {
+  0%   { opacity: 0; transform: scale(0.93) translateY(10px); }
+  70%  { opacity: 1; transform: scale(1.015) translateY(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes umc-install-popin {
+  0%   { opacity: 0; transform: scale(0.8); }
+  70%  { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes umc-install-shrink {
+  to { opacity: 0; transform: scale(0.82) translateY(-6px); }
+}
+@keyframes umc-sketch-draw { to { stroke-dashoffset: 0; } }
+@keyframes umc-sketch-fade { to { opacity: 0.94; } }
+@keyframes umc-install-shake {
+  0%, 68%, 100% { transform: rotate(0deg); }
+  72% { transform: rotate(15deg); }
+  76% { transform: rotate(-13deg); }
+  80% { transform: rotate(9deg); }
+  84% { transform: rotate(-6deg); }
+  88% { transform: rotate(3deg); }
+}
+
+@media (max-width: 359px) {
+  .umc-install-card { padding: 16px 14px 18px; border-radius: 18px; }
+  .umc-install-label { font-size: 17px; }
+  .umc-install-body { font-size: 14px; }
+  .umc-install-steps { gap: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .umc-install-card,
+  .umc-install-pill { animation: none; opacity: 1; }
+  .umc-install-card.is-closing { opacity: 0; }
+  /* still there and fully drawn — the arrow is the instruction, not flair */
+  .umc-sketch-ring,
+  .umc-sketch-line,
+  .umc-sketch-head,
+  .umc-sketch-glyph { animation: none; stroke-dashoffset: 0; }
+  .umc-sketch-glyph-bg { animation: none; opacity: 0.94; }
+  .umc-install-pill-bell,
+  .umc-install-ring-bell { animation: none; }
+  .umc-install-x { transition: none; }
+  .umc-install-steps li.is-active { animation: none; }
+  .umc-install-next { transition: none; }
+  .umc-install-x:hover { transform: none; }
+}
+
+/* ── button symbols in the step text (glyphs.tsx) ──────────────────
+   Clean inline marks beside their text labels. No key-cap tile: Safari's
+   Share, More, Add-to-Home and toggle symbols should read as part of the
+   sentence, not as tiny buttons floating behind it. */
+.umc-glyph {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.2em; height: 1.2em; margin: 0 0.08em; vertical-align: -0.24em;
+  border: 0; background: transparent; color: #f3f3f3;
+}
+.umc-glyph svg { width: 1.15em; height: 1.15em; }
+
+/* ── "You're all set!" (InstallPanel.tsx AllSet) ─────────────────────
+   Takes the card's place for ~2.6s, then the panel folds itself away.
+   Cartoony, in UMC's palette: a light badge that drops in with a squash and
+   stretch, a black tick drawn into it, sparks and grey confetti thrown off. */
+.umc-install-yay {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 10px 0 6px; text-align: center;
+  animation: umc-yay-in 0.2s ease-out both;
+}
+.umc-yay-badge { width: 132px; height: 132px; overflow: visible; }
+.umc-yay-disc { transform-box: view-box; transform-origin: 60px 60px; animation: umc-yay-bounce 0.7s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+.umc-yay-disc circle { fill: var(--umc-light); }
+.umc-yay-tick {
+  fill: none; stroke: var(--umc-black); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 100; stroke-dashoffset: 100;
+  animation: umc-sketch-draw 0.35s ease-out 0.45s forwards;
+}
+/* each spark's outward angle is its SVG rotate(); nothing here may set a CSS
+   transform, or it would override that and swing the sparks out of line */
+.umc-yay-spark {
+  stroke: var(--umc-light); stroke-width: 4; stroke-linecap: round;
+  opacity: 0;
+  animation: umc-yay-spark 0.6s ease-out 0.3s both;
+}
+.umc-yay-dot { fill: var(--umc-grey); transform-box: fill-box; transform-origin: center; opacity: 0; animation: umc-yay-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+.umc-yay-title {
+  margin: 8px 0 0; font-family: var(--serif); font-size: 26px; line-height: 1.1; color: var(--umc-light);
+  animation: umc-yay-wobble 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) 0.2s both;
+}
+.umc-yay-line { margin: 0; max-width: 28ch; font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ink-soft); animation: umc-yay-in 0.3s ease-out 0.5s both; }
+@keyframes umc-yay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes umc-yay-bounce {
+  0%   { transform: translateY(-26px) scale(0.3); }
+  45%  { transform: translateY(0) scale(1.14, 0.86); }
+  65%  { transform: translateY(-5px) scale(0.95, 1.05); }
+  82%  { transform: translateY(0) scale(1.03, 0.97); }
+  100% { transform: none; }
+}
+@keyframes umc-yay-spark {
+  0%   { opacity: 0; stroke-dasharray: 0 20; }
+  30%  { opacity: 1; }
+  100% { opacity: 0; stroke-dasharray: 8 20; }
+}
+@keyframes umc-yay-pop { 0% { opacity: 0; transform: scale(0); } 60% { opacity: 1; transform: scale(1.4); } 100% { opacity: 0.85; transform: scale(1); } }
+@keyframes umc-yay-wobble { 0% { opacity: 0; transform: translateY(8px) rotate(-4deg); } 60% { opacity: 1; transform: rotate(2deg); } 100% { opacity: 1; transform: none; } }
+
+/* sign-in held until the setup steps have been gone through once */
+.umc-rem-root .umc-btn.primary:disabled {
+  background: #242427; color: rgba(243, 243, 243, 0.35); box-shadow: none; cursor: not-allowed;
+}
+.umc-rem-held { color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .umc-install-yay, .umc-yay-disc, .umc-yay-title, .umc-yay-line { animation: none; }
+  .umc-yay-tick { animation: none; stroke-dashoffset: 0; }
+  .umc-yay-spark, .umc-yay-dot { animation: none; opacity: 0; }
+}

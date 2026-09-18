@@ -1,0 +1,136 @@
+/* PhoneOtp.css — styles for the shared phone-OTP modal (extracted from
+   LoginPage.tsx, 2026-09-17). The modal is a fixed overlay, so it declares its
+   own theme variables: under .umc-login-root these repeat the root's values
+   exactly. Every colour is var(--otp-*, <dark default>), so the login page
+   renders exactly as before while a host page (the light reminders page) can
+   re-theme the modal by setting --otp-* on an ancestor. */
+.umc-otp-overlay {
+  --serif:    'DM Serif Text', 'DM Serif Display', Georgia, serif;
+  --sans:     'Inter', system-ui, sans-serif;
+  --mono:     'JetBrains Mono', ui-monospace, monospace;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --fg:       #f3f3f3;
+  --fg-soft:  var(--otp-fg-soft, rgba(243,243,243,0.45));
+  --fg-faint: var(--otp-fg-faint, rgba(243,243,243,0.18));
+}
+@keyframes umc-otp-fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* phone OTP overlay */
+.umc-otp-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--otp-overlay-bg, rgba(11,11,11,0.92)); backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; animation: umc-otp-fadeUp 0.4s var(--ease-out) forwards;
+}
+.umc-otp-card {
+  width: 100%; max-width: 360px;
+  background: var(--otp-card-bg, #161618); border: 1px solid var(--otp-card-border, rgba(230,230,230,0.1));
+  border-radius: 20px; padding: 36px 32px; box-shadow: var(--otp-card-shadow, none);
+  display: flex; flex-direction: column; gap: 20px;
+}
+.umc-otp-title {
+  font-family: var(--serif); font-style: normal; font-size: 28px;
+  font-weight: 400; color: var(--otp-title, #fff); letter-spacing: -0.02em; margin: 0;
+}
+.umc-otp-desc {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--fg-soft); margin: -8px 0 0;
+}
+.umc-otp-input {
+  background: var(--otp-input-bg, #0b0b0b); border: 1px solid var(--otp-input-border, rgba(230,230,230,0.12));
+  border-radius: 12px; padding: 16px 18px;
+  font-family: var(--mono); font-size: 15px; font-weight: 600;
+  color: var(--otp-input-fg, #fff); letter-spacing: 0.06em; width: 100%;
+  transition: border-color 0.25s ease;
+  outline: none;
+}
+.umc-otp-input:focus { border-color: var(--otp-focus, rgba(52,199,89,0.5)); }
+.umc-otp-input::placeholder { color: var(--fg-faint); }
+
+/* phone field with fixed +91 prefix */
+.umc-otp-field {
+  display: flex; align-items: stretch;
+  background: var(--otp-input-bg, #0b0b0b); border: 1px solid var(--otp-input-border, rgba(230,230,230,0.12));
+  border-radius: 12px; overflow: hidden; box-shadow: var(--otp-input-shadow, none);
+  transition: border-color 0.25s ease;
+}
+.umc-otp-field:focus-within { border-color: var(--otp-focus, rgba(52,199,89,0.5)); }
+.umc-otp-prefix {
+  display: flex; align-items: center; padding: 0 14px;
+  font-family: var(--mono); font-size: 15px; font-weight: 600;
+  color: var(--fg-soft); background: var(--otp-prefix-bg, rgba(255,255,255,0.03));
+  border-right: 1px solid var(--otp-input-border, rgba(230,230,230,0.12));
+  user-select: none; pointer-events: none;
+}
+.umc-otp-input-bare {
+  background: transparent !important; border: none !important;
+  border-radius: 0; flex: 1; min-width: 0;
+}
+
+.umc-otp-row { display: flex; gap: 10px; }
+.umc-otp-btn {
+  flex: 1; padding: 16px; border-radius: 12px; border: none;
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.umc-otp-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.umc-otp-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.umc-otp-btn:disabled:hover { opacity: 0.38; transform: none; }
+.umc-otp-submit { background: var(--otp-submit-bg, #34C759); color: var(--otp-submit-fg, #04280e); box-shadow: var(--otp-submit-shadow, none); }
+.umc-otp-cancel {
+  background: transparent; color: var(--fg-soft);
+  border: 1px solid var(--otp-cancel-border, rgba(230,230,230,0.1)) !important;
+  transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.umc-otp-cancel:hover {
+  opacity: 1; color: var(--otp-title, #fff);
+  background: var(--otp-cancel-hover-bg, rgba(255,255,255,0.06));
+  border-color: var(--otp-cancel-hover-border, rgba(230,230,230,0.24)) !important;
+}
+
+/* 6-box OTP input — single digit per box, centred */
+.umc-otp-boxes { display: flex; gap: 8px; justify-content: center; }
+.umc-otp-box {
+  width: 40px; height: 50px; padding: 0; text-align: center;
+  background: var(--otp-input-bg, #0b0b0b); border: 1px solid var(--otp-input-border, rgba(230,230,230,0.12));
+  border-radius: 12px; box-shadow: var(--otp-input-shadow, none);
+  font-family: var(--mono); font-size: 20px; font-weight: 600;
+  color: var(--otp-input-fg, #fff); caret-color: var(--otp-caret, #34C759);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+.umc-otp-box.is-filled { border-color: var(--otp-filled, rgba(52,199,89,0.35)); }
+.umc-otp-box:focus {
+  border-color: var(--otp-focus-strong, rgba(52,199,89,0.6));
+  box-shadow: 0 0 0 3px var(--otp-focus-ring, rgba(52,199,89,0.14));
+}
+
+/* in-popup error message (matches the marketing-site error tone) */
+.umc-otp-error {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.04em; line-height: 1.5; text-transform: uppercase;
+  text-align: center; color: var(--otp-error-fg, #ff6b60);
+  background: var(--otp-error-bg, rgba(255,69,58,0.09));
+  border: 1px solid var(--otp-error-border, rgba(255,69,58,0.34));
+  border-radius: 10px; padding: 11px 12px; margin: -4px 0 0;
+}
+
+/* loading spinner inside the submit button — stay bright while spinning */
+.umc-otp-submit.is-loading,
+.umc-otp-submit.is-loading:hover {
+  opacity: 1 !important; transform: none !important; cursor: default;
+}
+.umc-spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid var(--otp-spinner-track, rgba(4,40,14,0.3)); border-top-color: var(--otp-spinner, #04280e);
+  border-radius: 50%; animation: umc-spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+@keyframes umc-spin { to { transform: rotate(360deg); } }
+
+#umc-recaptcha { display: none; }

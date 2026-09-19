@@ -42,6 +42,39 @@ export async function requestPermission(): Promise<NotificationPermission> {
   return Notification.requestPermission()
 }
 
+// Chromium exposes its native PWA install sheet through beforeinstallprompt.
+// Keep the event until onboarding reaches the install step. Other browsers
+// simply never emit it (Apple uses its share-sheet/Home Screen flow instead).
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
+
+let pendingInstallPrompt: BeforeInstallPromptEvent | null = null
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault()
+    pendingInstallPrompt = event as BeforeInstallPromptEvent
+  })
+  window.addEventListener('appinstalled', () => { pendingInstallPrompt = null })
+}
+
+// Browsers may reject prompt() when the preceding notification dialog has
+// consumed the user activation. That is not fatal: the normal browser install
+// affordance remains available and the reminders dashboard still opens.
+export async function requestAppInstall(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
+  const event = pendingInstallPrompt
+  if (!event) return 'unavailable'
+  try {
+    await event.prompt()
+    const { outcome } = await event.userChoice
+    pendingInstallPrompt = null
+    return outcome
+  } catch {
+    return 'unavailable'
+  }
+}
+
 // ── PWA head tags (manifest + Apple metas), injected only on this page so
 // the doctor portal served from the same bundle does not advertise itself
 // as the reminders app. Idempotent. ──────────────────────────────────────

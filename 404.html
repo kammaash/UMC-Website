@@ -12,7 +12,12 @@
     // Anything else (unknown marketing path) falls back to the home page.
     (function () {
       var l = window.location;
-      if (l.pathname === '/member' || l.pathname.indexOf('/member/') === 0) {
+      // The printed onboarding banners encode the former APK address. Keep
+      // that exact, extension-like path working even if GitHub Pages serves
+      // the request through its 404 handler instead of directory indexing.
+      if (l.pathname === '/downloads/umc-android.apk') {
+        l.replace(l.protocol + '//' + l.host + '/reminders/');
+      } else if (l.pathname === '/member' || l.pathname.indexOf('/member/') === 0) {
         l.replace(
           l.protocol + '//' + l.host + '/member/?p=' +
           encodeURIComponent(l.pathname.slice('/member'.length) + l.search) +

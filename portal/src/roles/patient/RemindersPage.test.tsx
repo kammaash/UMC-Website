@@ -41,7 +41,8 @@ vi.mock('./RevealSetup', () => ({
 
 vi.mock('./data/reminderPush', () => ({
   currentPlatform: vi.fn(), pushSupported: vi.fn().mockResolvedValue(true), permissionState: vi.fn(),
-  requestPermission: vi.fn(), registerPushToken: vi.fn().mockResolvedValue('registered'),
+  requestPermission: vi.fn(), requestAppInstall: vi.fn().mockResolvedValue('unavailable'),
+  registerPushToken: vi.fn().mockResolvedValue('registered'),
   deactivatePushToken: vi.fn().mockResolvedValue(undefined),
   listenForeground: vi.fn(() => () => {}), installPwaHead: vi.fn(),
   PushSetupError: class extends Error { constructor(public reason: string) { super(reason) } },
@@ -83,6 +84,8 @@ beforeEach(() => {
   vi.mocked(pushActions.currentPlatform).mockReturnValue(ANDROID)
   vi.mocked(pushActions.pushSupported).mockResolvedValue(true)
   vi.mocked(pushActions.permissionState).mockReturnValue('default')
+  vi.mocked(pushActions.requestPermission).mockResolvedValue('default')
+  vi.mocked(pushActions.requestAppInstall).mockResolvedValue('unavailable')
   vi.mocked(pushActions.registerPushToken).mockResolvedValue('registered')
   vi.mocked(pushActions.deactivatePushToken).mockResolvedValue(undefined)
 })
@@ -121,49 +124,35 @@ describe('RemindersPage — sign-in shell', () => {
 })
 
 describe('RemindersPage — claim step', () => {
-  it('previews with no arguments and shows the confirm card with patient + doctor', async () => {
+  it('previews with no arguments and automatically claims the OTP-matched patient', async () => {
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'Patient B', doctorName: 'Ranganath', isPrimary: true })
+    vi.mocked(claimActions.claimGroup).mockResolvedValue({ ok: true, groupId: 'G1', fullName: 'Patient B' })
     renderWith({ status: 'signed-in', user: patientB, profile: null })
-    expect(await screen.findByText('Is this you?')).toBeInTheDocument()
-    expect(screen.getByText('Patient B')).toBeInTheDocument()
-    expect(screen.getByText(/Set up by Dr Ranganath/)).toBeInTheDocument()
-    expect(claimActions.previewClaim).toHaveBeenCalledTimes(1)
-    expect(claimActions.claimGroup).not.toHaveBeenCalled()
+    await waitFor(() => expect(claimActions.claimGroup).toHaveBeenCalledWith('G1'))
+    expect(screen.queryByText('Is this you?')).not.toBeInTheDocument()
+    expect(screen.queryByText("Yes, that's me")).not.toBeInTheDocument()
   })
-  it('however the doctor typed the name, the confirm card and the heading show it title-cased', async () => {
+  it('however the doctor typed the name, the heading shows it title-cased', async () => {
     holdGreeting() // looks at the heading while the name is still in it
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'PATIENT VIJAY KUMAR', doctorName: '', isPrimary: true })
     vi.mocked(claimActions.claimGroup).mockResolvedValue({ ok: true, groupId: 'G1', fullName: 'PATIENT VIJAY KUMAR' })
     renderWith({ status: 'signed-in', user: patientB, profile: null })
-    expect(await screen.findByText('Patient vijay Kumar')).toBeInTheDocument()
-    await userEvent.click(screen.getByText("Yes, that's me"))
     expect(await screen.findByRole('heading', { name: "You're set up, Patient vijay Kumar" })).toBeInTheDocument()
   })
-  it('claims only after "Yes, that\'s me" and then shows the set-up screen', async () => {
+  it('claims without a second identity confirmation and then shows the set-up screen', async () => {
     holdGreeting() // looks at the heading while the name is still in it
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'Patient B', doctorName: '', isPrimary: true })
     vi.mocked(claimActions.claimGroup).mockResolvedValue({ ok: true, groupId: 'G1', fullName: 'Patient B' })
     renderWith({ status: 'signed-in', user: patientB, profile: null })
-    await userEvent.click(await screen.findByText("Yes, that's me"))
-    expect(claimActions.claimGroup).toHaveBeenCalledWith('G1')
+    await waitFor(() => expect(claimActions.claimGroup).toHaveBeenCalledWith('G1'))
     expect(await screen.findByRole('heading', { name: "You're set up, Patient B" })).toBeInTheDocument()
     // claimGroup's own response never persists a name — the page fills it in.
     expect(claimActions.syncPatientName).toHaveBeenCalledWith('u1', undefined, 'Patient B')
-  })
-  it('"Not me" on the confirm card cleans up the still-orphan account, never just signs out blindly', async () => {
-    vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'Patient B', doctorName: '', isPrimary: true })
-    vi.mocked(claimActions.usersDocExists).mockResolvedValue(false)
-    renderWith({ status: 'signed-in', user: patientB, profile: null })
-    await userEvent.click(await screen.findByText('Not me — sign out'))
-    await waitFor(() => expect(claimActions.deleteOrphanAccount).toHaveBeenCalledTimes(1))
-    expect(claimActions.signOutExisting).not.toHaveBeenCalled()
-    expect(claimActions.claimGroup).not.toHaveBeenCalled()
   })
   it('surfaces a claimGroup failure with a retry', async () => {
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'Patient B', isPrimary: true })
     vi.mocked(claimActions.claimGroup).mockRejectedValue({ code: 'functions/permission-denied' })
     renderWith({ status: 'signed-in', user: patientB, profile: null })
-    await userEvent.click(await screen.findByText("Yes, that's me"))
     expect(await screen.findByText(/not for your phone number/)).toBeInTheDocument()
     expect(screen.getByText('Try again')).toBeInTheDocument()
   })
@@ -241,9 +230,8 @@ describe('RemindersPage — signing out and back in', () => {
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'Patient B', doctorName: '', isPrimary: true })
     vi.mocked(claimActions.claimGroup).mockResolvedValue({ ok: true, groupId: 'G1', fullName: 'Patient B' })
-    // first time: claims via the confirm card, runs through to the avatar
+    // first time: claims automatically, runs through to the avatar
     const { rerender } = renderWith({ status: 'signed-in', user: patientB, profile: null })
-    await userEvent.click(await screen.findByText("Yes, that's me"))
     expect(await screen.findByRole('heading', { name: 'Reminders' })).toBeInTheDocument()
     await screen.findByRole('button', { name: 'Account details' })
 
@@ -282,14 +270,13 @@ describe('RemindersPage — the number lives in Account details, not on the dash
 })
 
 describe('RemindersPage — push registration (claimed screen)', () => {
-  it('permission not yet asked → "Allow reminders" button; tap asks, then registers with the gid + platform', async () => {
+  it('permission not yet asked → asks automatically and registers with the gid + platform', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: /Enable Reminders/ })
-    await userEvent.click(screen.getByRole('button', { name: /Enable Reminders/ }))
-    expect(pushActions.requestPermission).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(pushActions.requestPermission).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(pushActions.registerPushToken).toHaveBeenCalledWith('G0', 'android-chrome'))
     expect(await screen.findByText(/Reminders are on/)).toBeInTheDocument()
+    await waitFor(() => expect(pushActions.requestAppInstall).toHaveBeenCalledTimes(1))
   })
   it('permission already granted → registers silently on open (refreshes lastSeenAt), no button', async () => {
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
@@ -301,10 +288,9 @@ describe('RemindersPage — push registration (claimed screen)', () => {
   it('permission refused at the prompt → blocked message, no registration', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('denied')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: /Enable Reminders/ })
-    await userEvent.click(screen.getByRole('button', { name: /Enable Reminders/ }))
     expect(await screen.findByText(/Notifications are blocked/)).toBeInTheDocument()
     expect(pushActions.registerPushToken).not.toHaveBeenCalled()
+    await waitFor(() => expect(pushActions.requestAppInstall).toHaveBeenCalledTimes(1))
   })
   it('registration failure → message with retry', async () => {
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
@@ -402,7 +388,7 @@ describe('RemindersPage — Android notification steps (claimed screen)', () => 
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
     expect(screen.queryByRole('button', { name: /Done/ })).toBeNull()
     expect(screen.queryByText(/Step \d of/)).toBeNull()
-    expect(pushActions.requestPermission).not.toHaveBeenCalled()
+    expect(pushActions.requestPermission).toHaveBeenCalledTimes(1)
   })
   it('prompt dismissed without an answer → steps stay, the button can be tapped again', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('default')
@@ -464,8 +450,6 @@ describe('RemindersPage — "You\'re all set!" once reminders are confirmed on',
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    const tap = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    await tap.click(await screen.findByRole('button', { name: /Enable Reminders/ }))
     expect(await screen.findByText("You're all set!")).toBeInTheDocument()
     expect(pushActions.registerPushToken).toHaveBeenCalledWith('G0', 'android-chrome')
     act(() => { vi.advanceTimersByTime(4000) })
@@ -476,14 +460,12 @@ describe('RemindersPage — "You\'re all set!" once reminders are confirmed on',
     vi.mocked(pushActions.currentPlatform).mockReturnValue({ ...ANDROID, os: 'other', tokenPlatform: 'other' })
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await userEvent.click(await screen.findByRole('button', { name: /Enable Reminders/ }))
     expect(await screen.findByText("You're all set!")).toBeInTheDocument()
   })
   it('not before the save is confirmed — a failed save shows the error, no celebration', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     vi.mocked(pushActions.registerPushToken).mockRejectedValue(new Error('boom'))
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await userEvent.click(await screen.findByRole('button', { name: /Enable Reminders/ }))
     expect(await screen.findByText(/Couldn't turn on reminders/)).toBeInTheDocument()
     expect(screen.queryByText("You're all set!")).toBeNull()
   })
@@ -497,7 +479,6 @@ describe('RemindersPage — "You\'re all set!" once reminders are confirmed on',
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     vi.mocked(pushActions.registerPushToken).mockResolvedValue('app-owns')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await userEvent.click(await screen.findByRole('button', { name: /Enable Reminders/ }))
     await screen.findByText(/reminders come from the UMC app/)
     expect(screen.queryByText("You're all set!")).toBeNull()
   })
@@ -595,8 +576,6 @@ describe('RemindersPage — account details sheet', () => {
     vi.mocked(claimActions.claimGroup).mockResolvedValue({ ok: true, groupId: 'G1', fullName: 'Patient B' })
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: null })
-    await userEvent.click(await screen.findByText("Yes, that's me"))
-
     expect(screen.queryByText('Account details')).not.toBeInTheDocument()
     await openAccountSheet()
     const sheet = screen.getByRole('dialog')

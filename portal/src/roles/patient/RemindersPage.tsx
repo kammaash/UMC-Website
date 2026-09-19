@@ -22,7 +22,7 @@ import { previewClaim, claimGroup, usersDocExists, deleteOrphanAccount, signOutE
 import { decideAfterPreview, decideNoMatch, claimErrorMessage } from './data/claimDecision'
 import {
   currentPlatform, pushSupported, permissionState, requestPermission,
-  registerPushToken, deactivatePushToken, listenForeground, installPwaHead, PushSetupError,
+  requestAppInstall, registerPushToken, deactivatePushToken, listenForeground, installPwaHead, PushSetupError,
 } from './data/reminderPush'
 import { installOs, type Platform } from './data/platformGate'
 import { InstallPanel } from './InstallPanel'
@@ -45,15 +45,12 @@ type OtpStep = 'idle' | 'phone' | 'otp'
 // What the signed-in half of the page is doing.
 type ClaimState =
   | { kind: 'looking' }
-  | { kind: 'confirm'; groupId: string; patientName: string; doctorName: string }
   | { kind: 'claiming'; groupId: string; patientName: string; doctorName: string }
   // returning: signed in to a record this account had already claimed — the
   // heading says "Welcome back" instead of "You're set up".
   | { kind: 'claimed'; groupId: string; fullName: string; doctorName?: string; returning: boolean }
   | { kind: 'error'; message: string }
 
-const NOT_YOU_MSG =
-  "No worries — you're signed out, nothing was changed. If your doctor has reminders set up for you, ask them to double-check the phone number on file."
 const EXISTING_ACCOUNT_MSG =
   'This number already has a UMC account. Open the UMC app — your reminders are there.'
 const OTHER_ACCOUNT_MSG =
@@ -153,6 +150,8 @@ export function RemindersPage() {
   // patient's own tap and the token write came back. Never on the silent
   // refresh a returning patient gets on every open.
   const [celebrating, setCelebrating] = useState(false)
+  // Prevent StrictMode/effect re-runs from opening the browser prompts twice.
+  const autoPromptedFor = useRef<string | null>(null)
   // Sign-out is blocked while this browser's push token is still live.
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
@@ -236,9 +235,21 @@ export function RemindersPage() {
           }
           return
         }
-        case 'confirm':
-          setClaim({ kind: 'confirm', groupId: verdict.groupId, patientName: verdict.patientName, doctorName: verdict.doctorName })
+        case 'confirm': {
+          // The OTP already proves ownership of the doctor's phone number, so
+          // claim immediately instead of asking "Yes, that's me" a second time.
+          setClaim({ kind: 'claiming', groupId: verdict.groupId, patientName: verdict.patientName, doctorName: verdict.doctorName })
+          try {
+            const res = await claimGroup(verdict.groupId)
+            if (cancelled) return
+            setClaim({ kind: 'claimed', groupId: res.groupId, fullName: res.fullName, doctorName: verdict.doctorName, returning: false })
+            syncPatientName(uid, profile?.fullName, res.fullName).catch((e) => console.error('name sync failed:', e))
+          } catch (err) {
+            console.error('claimGroup failed:', err)
+            if (!cancelled) setClaim({ kind: 'error', message: claimErrorMessage(err) })
+          }
           return
+        }
         case 'other-account':
           setNotice(OTHER_ACCOUNT_MSG)
           await signOutExisting().catch((e) => console.error('sign-out failed:', e))
@@ -277,9 +288,31 @@ export function RemindersPage() {
       if (!(await pushSupported())) { if (!cancelled) setPush({ kind: 'gate', gate: 'unsupported' }); return }
       const perm = permissionState()
       if (cancelled) return
-      if (perm === 'granted') await register(claimedGid, false)   // silent refresh on every open (lastSeenAt)
-      else if (perm === 'denied') setPush({ kind: 'denied' })
-      else setPush({ kind: 'prompt' })
+      if (perm === 'granted') {
+        await register(claimedGid, false)   // silent refresh on every open (lastSeenAt)
+        await requestAppInstall()
+      }
+      else if (perm === 'denied') {
+        setPush({ kind: 'denied' })
+        await requestAppInstall()
+      }
+      else if (autoPromptedFor.current === claimedGid) setPush({ kind: 'prompt' })
+      else {
+        // Ask as soon as OTP sign-in/claiming finishes. Some browsers insist
+        // on another tap; in that case permission stays "default" and the
+        // dashboard's Enable Reminders control remains as the fallback.
+        autoPromptedFor.current = claimedGid
+        let result: NotificationPermission = 'default'
+        try { result = await requestPermission() } catch (err) { console.error('automatic permission request failed:', err) }
+        if (cancelled) return
+        if (result === 'granted') await register(claimedGid)
+        else if (result === 'denied') setPush({ kind: 'denied' })
+        else setPush({ kind: 'prompt' })
+        // On Chromium/Android this opens the native Add to Home Screen sheet
+        // when the browser has made it available. It is intentionally best
+        // effort and never blocks access to the dashboard.
+        await requestAppInstall()
+      }
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -326,27 +359,6 @@ export function RemindersPage() {
   }
   const handleCancel = () => { resetOtp(); setOtpStep('idle') }
 
-  // ── confirm card: "Yes, that's me" ───────────────────────────────────────
-  const handleClaim = async () => {
-    if (claim.kind !== 'confirm') return
-    const { groupId, patientName, doctorName } = claim
-    setClaim({ kind: 'claiming', groupId, patientName, doctorName })
-    try {
-      const res = await claimGroup(groupId)
-      setClaim({ kind: 'claimed', groupId: res.groupId, fullName: res.fullName, doctorName, returning: false })
-      // claimGroup doesn't persist the name itself — write it now, best-effort.
-      if (user) syncPatientName(user.uid, profile?.fullName, res.fullName).catch((e) => console.error('name sync failed:', e))
-    } catch (err) {
-      console.error('claimGroup failed:', err)
-      setClaim({ kind: 'error', message: claimErrorMessage(err) })
-    }
-  }
-  // ── confirm card: "Not me" — this account is still a fresh orphan (claimGroup
-  // hasn't run), so clean it up the same way an unmatched sign-in would.
-  const handleDecline = async () => {
-    if (claim.kind !== 'confirm' || !user) return
-    await cleanupUnclaimedAccount(user.uid, () => setNotice(NOT_YOU_MSG))
-  }
   const handleRetry = () => { lookedUpFor.current = null; setNotice(null); setRetryKey((k) => k + 1) }
 
   // Sign-out must turn this browser's push token off FIRST: the rule on
@@ -413,28 +425,8 @@ export function RemindersPage() {
     )
   } else if (claim.kind === 'looking') {
     body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />Finding your record…</div>
-  } else if (claim.kind === 'confirm' || claim.kind === 'claiming') {
-    const busy = claim.kind === 'claiming'
-    body = (
-      <main className="umc-rem-main">
-        <h1 className="umc-rem-hdg">Is this you?</h1>
-        <div className="umc-rem-card">
-          <p className="umc-rem-card-label">We found your record</p>
-          <p className="umc-rem-card-value umc-rem-card-name">{formatPatientName(claim.patientName)}</p>
-          <p className="umc-rem-card-sub">
-            {claim.doctorName ? `Set up by Dr ${claim.doctorName}` : 'Set up by your doctor'}
-            {' · '}{formatIndianPhone(user.phoneNumber)}
-          </p>
-        </div>
-        <p className="umc-rem-lead">Confirm, and this phone will get a reminder for every dose your doctor prescribed.</p>
-        <button type="button" className="umc-btn primary full big" disabled={busy} onClick={handleClaim}>
-          {busy ? <span className="umc-spin on-dark" aria-hidden="true" /> : <><Icon name="check" size={20} />Yes, that's me</>}
-        </button>
-        <button type="button" className="umc-btn ghost full" disabled={busy} onClick={handleDecline}>
-          Not me — sign out
-        </button>
-      </main>
-    )
+  } else if (claim.kind === 'claiming') {
+    body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />Setting up your reminders…</div>
   } else if (claim.kind === 'claimed') {
     body = (
       <main className="umc-rem-main umc-rem-dash">

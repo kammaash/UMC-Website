@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Request deletion of your UMC account and associated personal data.">
+  <meta name="robots" content="index,follow">
+  <meta name="theme-color" content="#f7faf8">
+  <title>Delete your UMC account | Unified Medical Care</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17342f;
+      --muted: #59706b;
+      --green: #176b57;
+      --green-dark: #0f5142;
+      --mint: #e6f3ee;
+      --paper: #ffffff;
+      --line: #d8e5e0;
+      --danger: #a43f42;
+      --shadow: 0 20px 55px rgba(22, 66, 55, .10);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 15% 0%, #dff3ea 0, transparent 28rem),
+        linear-gradient(180deg, #fbfdfc 0%, #f2f7f5 100%);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    a { color: var(--green-dark); }
+    a:focus-visible { outline: 3px solid #72b9a5; outline-offset: 4px; }
+
+    .shell { width: min(940px, calc(100% - 32px)); margin: 0 auto; }
+
+    header { padding: 28px 0 10px; }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--ink);
+      font-weight: 750;
+      letter-spacing: -.01em;
+      text-decoration: none;
+    }
+
+    .mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 12px;
+      background: var(--green);
+      color: white;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    main { padding: 34px 0 72px; }
+
+    .hero {
+      padding: clamp(30px, 6vw, 64px);
+      border: 1px solid rgba(216, 229, 224, .9);
+      border-radius: 28px;
+      background: rgba(255, 255, 255, .92);
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--green);
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1, h2 { line-height: 1.15; letter-spacing: -.035em; }
+    h1 { max-width: 720px; margin: 0; font-size: clamp(2.25rem, 7vw, 4.4rem); }
+    h2 { margin: 0 0 14px; font-size: clamp(1.35rem, 3vw, 1.85rem); }
+    p { margin: 0 0 16px; }
+
+    .lead {
+      max-width: 720px;
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+
+    .button {
+      display: inline-flex;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 20px;
+      border-radius: 999px;
+      background: var(--green);
+      color: white;
+      font-weight: 750;
+      text-decoration: none;
+      box-shadow: 0 9px 24px rgba(23, 107, 87, .20);
+    }
+
+    .button:hover { background: var(--green-dark); }
+
+    .button.secondary {
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--green-dark);
+      box-shadow: none;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .card {
+      padding: clamp(22px, 4vw, 34px);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--paper);
+    }
+
+    .card.full { grid-column: 1 / -1; }
+    .card p:last-child, .card ul:last-child, .card ol:last-child { margin-bottom: 0; }
+
+    ol, ul { margin: 12px 0 18px; padding-left: 1.35rem; }
+    li + li { margin-top: 9px; }
+
+    .note {
+      padding: 16px 18px;
+      border-left: 4px solid var(--green);
+      border-radius: 6px 14px 14px 6px;
+      background: var(--mint);
+    }
+
+    .warning { border-left-color: var(--danger); background: #fff2f1; }
+    .muted { color: var(--muted); }
+
+    .kicker {
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--mint);
+      color: var(--green-dark);
+      font-size: .74rem;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .role-card {
+      scroll-margin-top: 20px;
+      padding: clamp(22px, 4vw, 34px);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--paper);
+    }
+
+    .role-card h2 { margin-bottom: 18px; }
+    .role-card h3 { margin: 22px 0 8px; font-size: 1rem; }
+
+    .jump-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .jump-links a {
+      display: block;
+      padding: 8px 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: white;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .phone-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .phone-list .button { min-height: 44px; box-shadow: none; }
+    .fine-print { font-size: .9rem; }
+
+    footer {
+      padding: 24px 0 40px;
+      color: var(--muted);
+      font-size: .9rem;
+      text-align: center;
+    }
+
+    @media (max-width: 680px) {
+      .grid, .role-grid { grid-template-columns: 1fr; }
+      .card.full { grid-column: auto; }
+      .actions { flex-direction: column; }
+      .button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header class="shell">
+    <a class="brand" href="/" aria-label="Unified Medical Care home">
+      <span class="mark" aria-hidden="true">+</span>
+      <span>Unified Medical Care</span>
+    </a>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Account and data controls</p>
+      <h1>Delete your UMC account</h1>
+      <p class="lead">This page is for users of the <strong>UMC (Unified Medical Care)</strong> mobile app. Account deletion is permanent and must be started and confirmed by you while signed in to the UMC app.</p>
+      <div class="actions">
+        <a class="button" href="#steps">See in-app steps</a>
+        <a class="button secondary" href="#roles">Choose your role</a>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card" id="steps">
+        <span class="kicker">Required</span>
+        <h2>Delete through the UMC app</h2>
+        <ol>
+          <li>Open UMC and sign in.</li>
+          <li>Open the side menu and select <strong>Account Management</strong>.</li>
+          <li><strong>Patient, doctor, or pharmacy:</strong> scroll down and select <strong>Delete Account</strong>.</li>
+          <li><strong>Caregiver, diagnostic centre, or clinic assistant:</strong> return to the side menu and select <strong>Delete Account</strong> there.</li>
+          <li>Read the role-specific notice, select <strong>Delete</strong>, and wait for UMC to finish.</li>
+        </ol>
+        <p class="note">Your signed-in session verifies account ownership. UMC cannot complete deletion based only on a phone call.</p>
+      </section>
+
+      <section class="card">
+        <span class="kicker">Need help?</span>
+        <h2>Call UMC support</h2>
+        <p>We can explain the steps, help you regain access to the app, or explain a deletion restriction:</p>
+        <div class="phone-list">
+          <a class="button" href="tel:+916304519244">+91 63045 19244</a>
+          <a class="button secondary" href="tel:+917995601391">+91 79956 01391</a>
+        </div>
+        <p class="note warning" style="margin-top:18px"><strong>A call does not delete your account.</strong> For your security, only you can initiate and confirm deletion inside the signed-in UMC app. Never share an OTP with anyone, including support.</p>
+      </section>
+
+      <section class="card full">
+        <h2>Conditions that apply to everyone</h2>
+        <ul>
+          <li>Deletion is permanent and cannot be undone. Uninstalling the app does not delete an account.</li>
+          <li>If deletion is blocked, the account remains intact. Finish or cancel active work and settle the displayed amount, then try again.</li>
+          <li>Any caregiver access you hold for another patient is removed, regardless of your main role.</li>
+          <li>Your UMC profile, notification history, local app preferences, and sign-in account are removed, and you are signed out.</li>
+          <li>Completed healthcare and financial records may be retained when they belong to another patient’s medical history or are needed for accounting, settlement, fraud prevention, disputes, or legal obligations.</li>
+        </ul>
+      </section>
+    </div>
+
+    <section class="card full" id="roles" style="margin-top:20px">
+      <h2>Deletion rules by role</h2>
+      <p class="muted">Choose your role to see every condition and what happens to its data.</p>
+      <ul class="jump-links">
+        <li><a href="#patient">Patient</a></li><li><a href="#caregiver">Caregiver</a></li>
+        <li><a href="#doctor">Doctor</a></li><li><a href="#pharmacy">Pharmacy</a></li>
+        <li><a href="#diagnostic">Diagnostic centre</a></li><li><a href="#assistant">Clinic assistant</a></li>
+      </ul>
+    </section>
+
+    <div class="role-grid">
+      <article class="role-card" id="patient">
+        <span class="kicker">Patient</span><h2>Patient account</h2>
+        <h3>Deletion is blocked while you have</h3>
+        <ul>
+          <li>an appointment awaiting confirmation, confirmed, active, or marked arrived;</li>
+          <li>a pending, accepted, or active pharmacy order;</li>
+          <li>a pending, selected, confirmed, payment-pending, active, or arrived diagnostic order;</li>
+          <li>money still held in escrow, including during a cancellation or refund; or</li>
+          <li>any outstanding patient charge shown by UMC.</li>
+        </ul>
+        <p>Complete or cancel the active item and allow any payment or refund to finish. Settle any displayed charge, then retry deletion.</p>
+        <h3>What is deleted</h3>
+        <p>Your profile, patient group, medicines, dose and reminder history, consents, archived medication data, ABHA link held by UMC, notifications, local alarms, caregiver links, and links from doctors’ active patient rosters are removed.</p>
+        <h3>What may remain</h3>
+        <p>Completed appointments, pharmacy orders, diagnostic orders, money fields, service names, status, and timestamps may remain as provider and accounting records. Your name, contact details, address, location, and clinical notes are removed from those records. Uploaded diagnostic reports linked to those orders are deleted from UMC storage.</p>
+      </article>
+
+      <article class="role-card" id="caregiver">
+        <span class="kicker">Caregiver</span><h2>Caregiver account</h2>
+        <h3>Deletion conditions</h3>
+        <p>There are no caregiver-specific active-work or dues restrictions. Confirm deletion inside the app.</p>
+        <h3>What is deleted</h3>
+        <p>Your profile, notifications, sign-in account, local app data, caregiver routing records, and your membership in every patient group are removed.</p>
+        <h3>What may remain</h3>
+        <p>The patients you helped keep their medicines, dose history, appointments, orders, tests, and other medical records. Deleting your caregiver account does not delete another person’s health record.</p>
+      </article>
+
+      <article class="role-card" id="doctor">
+        <span class="kicker">Doctor</span><h2>Doctor account</h2>
+        <h3>Deletion is blocked while you have</h3>
+        <ul>
+          <li>active appointments, appointments awaiting patient or doctor confirmation, arrived appointments, or payments/refunds in progress;</li>
+          <li>outstanding penalties;</li>
+          <li>billed commission dues; or</li>
+          <li>commission accrued in the current open cycle, when in-person settlement is enabled.</li>
+        </ul>
+        <p>If blocked, UMC normally stops new appointments so your queue can wind down; this can be reversed in Consultation Settings. Complete or cancel appointments first. Open <strong>Finances</strong> to settle penalties or dues. When commission is the only blocker, UMC offers <strong>Settle &amp; Close</strong>; submit the payment reference and deletion completes after the final settlement is verified.</p>
+        <h3>What is deleted</h3>
+        <p>Your profile and contact details, doctor account, settings, pending requests and invitations, notifications, assistant links, and sign-in access are removed. Patients and caregivers are informed that the account closed.</p>
+        <h3>What may remain</h3>
+        <p>Your name remains on patients you treated, and your medical notes are transferred to each patient’s record so their history stays complete. Completed appointments, prescriptions, related medical records, and settled financial audit records remain where required.</p>
+      </article>
+
+      <article class="role-card" id="pharmacy">
+        <span class="kicker">Pharmacy</span><h2>Pharmacy account</h2>
+        <h3>Deletion is blocked while you have</h3>
+        <ul>
+          <li>accepted or active orders, or any order with money still held in escrow;</li>
+          <li>open bids awaiting a patient response;</li>
+          <li>outstanding penalties;</li>
+          <li>billed commission dues; or</li>
+          <li>commission accrued in the current open cycle, when pharmacy in-person settlement is enabled.</li>
+        </ul>
+        <p>Complete or cancel active orders, allow refunds to finish, and withdraw open bids. Open <strong>Finances</strong> to settle penalties or dues. When commission is the only blocker, use <strong>Settle &amp; Close</strong>; deletion completes after the final settlement is verified.</p>
+        <h3>What is deleted</h3>
+        <p>Your pharmacy profile, active account access, notifications, pending connections, and bid access are removed. Doctors’ preferred-pharmacy links to the deleted account are cleared.</p>
+        <h3>What may remain</h3>
+        <p>Completed orders remain on patients’ records, including the pharmacy name already recorded with the service. Settled finance and accounting audit records may remain.</p>
+      </article>
+
+      <article class="role-card" id="diagnostic">
+        <span class="kicker">Diagnostic centre</span><h2>Diagnostic centre account</h2>
+        <h3>Deletion is blocked while you have</h3>
+        <ul>
+          <li>a selected, confirmed, active, arrived, or procedure-complete test order;</li>
+          <li>an order with money still held in escrow; or</li>
+          <li>outstanding penalties.</li>
+        </ul>
+        <p>Complete or cancel every active test order, allow payments or refunds to finish, and resolve penalties through <strong>Finances</strong> before trying again.</p>
+        <h3>What is deleted</h3>
+        <p>Your diagnostic-centre profile, active account access, notifications, and local app data are removed.</p>
+        <h3>What may remain</h3>
+        <p>Completed tests and reports remain in the relevant patients’ medical histories. Completed service, payment, and settled financial audit records may also remain.</p>
+      </article>
+
+      <article class="role-card" id="assistant">
+        <span class="kicker">Clinic assistant</span><h2>Clinic assistant account</h2>
+        <h3>Deletion conditions</h3>
+        <p>There are no clinic-assistant-specific active-work or dues restrictions. Confirm deletion inside the app.</p>
+        <h3>What is deleted</h3>
+        <p>Your profile, assistant hub, stored name and contact details, doctor links, pending assistant invitations, notifications, sign-in access, and local app data are removed.</p>
+        <h3>What may remain</h3>
+        <p>Doctors and patients keep their own clinic and medical records. Deleting an assistant account does not delete records belonging to a doctor or patient.</p>
+      </article>
+    </div>
+
+    <div class="grid">
+      <section class="card full">
+        <h2>If UMC will not let you delete</h2>
+        <ul>
+          <li>Read every reason shown in the app; UMC lists all current blockers together.</li>
+          <li>Resolve active work before paying commission, because more commission can accrue while work remains open.</li>
+          <li>If UMC cannot verify dues, check your connection and retry.</li>
+          <li>If the amount looks wrong or you cannot access the relevant screen, call UMC for guidance.</li>
+        </ul>
+        <div class="phone-list">
+          <a class="button" href="tel:+916304519244">Call +91 63045 19244</a>
+          <a class="button secondary" href="tel:+917995601391">Call +91 79956 01391</a>
+        </div>
+        <p class="muted fine-print" style="margin-top:16px">Support can guide you, but cannot bypass active work, outstanding dues, identity checks, or the requirement that you confirm deletion in the app.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="shell">
+    <span>© <span id="year">2026</span> Unified Medical Care.</span>
+  </footer>
+
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

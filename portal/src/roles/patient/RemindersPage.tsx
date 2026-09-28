@@ -164,7 +164,14 @@ export function RemindersPage() {
   const pushResolved = settled || push.kind === 'denied' || push.kind === 'gate' || push.kind === 'error'
   // The name → avatar sequence runs on its own fixed clock (GREETING_HOLD_MS
   // after the claimed screen appears), independent of push.
-  const morph = useGreetingMorph(claim.kind === 'claimed', claim.kind === 'claimed' ? claim.fullName : '')
+  // Destructured, not kept as one object: the hook returns two refs beside
+  // plain state, and the react-hooks/refs rule would otherwise treat every
+  // field of that object as a ref read during render.
+  const {
+    nameRef: morphNameRef, cornerRef: morphCornerRef,
+    phase: morphPhase, peeking: morphPeeking, overlay: morphOverlay, flying: morphFlying,
+    handleAvatarClick, handlePointerEnter, handlePointerLeave,
+  } = useGreetingMorph(claim.kind === 'claimed', claim.kind === 'claimed' ? claim.fullName : '')
   // The corner label is just the capitalised first initial — same font/colour
   // the name had in the heading (var(--serif) / var(--ink)), just shrunk.
   const nameInitial = claim.kind === 'claimed' ? (claim.fullName.trim().charAt(0).toUpperCase() || '?') : ''
@@ -172,7 +179,7 @@ export function RemindersPage() {
   // the corner has settled — the header's status light carries the ongoing
   // signal. ('enabled' has no banner at all any more.) Denied/gated/erroring
   // states stay put; those still need the patient's attention.
-  const setupTucked = settled && (morph.phase === 'corner' || morph.phase === 'avatar')
+  const setupTucked = settled && (morphPhase === 'corner' || morphPhase === 'avatar')
 
   useEffect(() => { document.title = 'UMC — Medicine reminders'; installPwaHead() }, [])
 
@@ -200,12 +207,21 @@ export function RemindersPage() {
     }
   }
 
+  // Signed out: forget the last patient entirely, so nothing of theirs (the
+  // header's avatar and status light, the finished name animation) is left
+  // behind on the sign-in screen or carried into the next sign-in. Adjusted
+  // during render (React's reset-on-prop-change pattern) rather than in an
+  // effect, so the stale claim never reaches a paint.
+  const signedIn = status === 'signed-in' && !!user
+  const [wasSignedIn, setWasSignedIn] = useState(signedIn)
+  if (wasSignedIn !== signedIn) {
+    setWasSignedIn(signedIn)
+    if (!signedIn) setClaim({ kind: 'looking' })
+  }
+
   // ── the lookup: runs as soon as a session exists ─────────────────────────
   useEffect(() => {
-    // Signed out: forget the last patient entirely, so nothing of theirs (the
-    // header's avatar and status light, the finished name animation) is left
-    // behind on the sign-in screen or carried into the next sign-in.
-    if (status !== 'signed-in' || !user) { lookedUpFor.current = null; setClaim({ kind: 'looking' }); return }
+    if (status !== 'signed-in' || !user) { lookedUpFor.current = null; return }
     if (lookedUpFor.current === user.uid) return
     lookedUpFor.current = user.uid
     const uid = user.uid
@@ -431,8 +447,8 @@ export function RemindersPage() {
     body = (
       <main className="umc-rem-main umc-rem-dash">
         <h1 className="umc-rem-hdg">
-          {morph.phase === 'inline' || morph.phase === 'morphing' ? (
-            <>{claim.returning ? 'Welcome back' : "You're set up"}{claim.fullName ? ', ' : ''}<span ref={morph.nameRef} style={morph.phase === 'morphing' ? { visibility: 'hidden' } : undefined}>{formatPatientName(claim.fullName)}</span></>
+          {morphPhase === 'inline' || morphPhase === 'morphing' ? (
+            <>{claim.returning ? 'Welcome back' : "You're set up"}{claim.fullName ? ', ' : ''}<span ref={morphNameRef} style={morphPhase === 'morphing' ? { visibility: 'hidden' } : undefined}>{formatPatientName(claim.fullName)}</span></>
           ) : 'Reminders'}
         </h1>
         {/* The number itself lives in Account details now (decision
@@ -516,36 +532,36 @@ export function RemindersPage() {
                 above (which collapses once it's been seen) — this stays up
                 for as long as the claimed screen does, so the patient can
                 glance at it later and know without reading anything.
-                Steps aside (morph.peeking) when the peeked initial slides
+                Steps aside (morphPeeking) when the peeked initial slides
                 out from behind the avatar into this same spot, so the two
                 are never on top of each other. */}
             {pushResolved && (
               <span
-                className={`umc-rem-status ${settled ? 'is-on' : 'is-off'}${morph.peeking ? ' is-peeked' : ''}`}
+                className={`umc-rem-status ${settled ? 'is-on' : 'is-off'}${morphPeeking ? ' is-peeked' : ''}`}
                 aria-hidden="true"
                 title={settled ? 'Reminders are on' : 'Reminders are off'}
               >
                 <Glyph name="phone-vibrate" />
               </span>
             )}
-            <div className="umc-rem-corner" ref={morph.cornerRef}>
-              {morph.phase === 'corner' && (
+            <div className="umc-rem-corner" ref={morphCornerRef}>
+              {morphPhase === 'corner' && (
                 <span className="umc-rem-corner-name">{nameInitial}</span>
               )}
-              {morph.phase === 'avatar' && (
+              {morphPhase === 'avatar' && (
                 <>
                   {/* Peeked: the full name, not the initial the resting
                       corner label uses — this is a deliberate look-up, so
                       it should say who it means, not make the patient
                       infer it from one letter. */}
-                  <span className={`umc-rem-corner-name is-tuck${morph.peeking ? ' is-peek' : ''}`}>{formatPatientName(claim.fullName)}</span>
+                  <span className={`umc-rem-corner-name is-tuck${morphPeeking ? ' is-peek' : ''}`}>{formatPatientName(claim.fullName)}</span>
                   <button
                     type="button"
                     className="umc-rem-account-btn is-shown"
                     aria-label="Account details"
-                    onClick={() => { morph.handleAvatarClick(); setAccountOpen(true) }}
-                    onMouseEnter={morph.handlePointerEnter}
-                    onMouseLeave={morph.handlePointerLeave}
+                    onClick={() => { handleAvatarClick(); setAccountOpen(true) }}
+                    onMouseEnter={handlePointerEnter}
+                    onMouseLeave={handlePointerLeave}
                   >
                     <AccountAvatar photoUrl={profile?.profilePhotoUrl} name={claim.fullName} />
                   </button>
@@ -556,18 +572,18 @@ export function RemindersPage() {
         )}
       </div>
 
-      {morph.overlay && (
+      {morphOverlay && (
         <span
-          className={`umc-rem-morph-clone${morph.flying ? ' is-flying' : ''}`}
+          className={`umc-rem-morph-clone${morphFlying ? ' is-flying' : ''}`}
           aria-hidden="true"
           style={{
-            top: morph.overlay.fromTop, left: morph.overlay.fromLeft,
-            fontSize: morph.overlay.fontSize, fontFamily: morph.overlay.fontFamily, fontWeight: morph.overlay.fontWeight,
-            color: morph.overlay.color,
-            ['--dx' as string]: `${morph.overlay.dx}px`, ['--dy' as string]: `${morph.overlay.dy}px`, ['--s' as string]: morph.overlay.scale,
+            top: morphOverlay.fromTop, left: morphOverlay.fromLeft,
+            fontSize: morphOverlay.fontSize, fontFamily: morphOverlay.fontFamily, fontWeight: morphOverlay.fontWeight,
+            color: morphOverlay.color,
+            ['--dx' as string]: `${morphOverlay.dx}px`, ['--dy' as string]: `${morphOverlay.dy}px`, ['--s' as string]: morphOverlay.scale,
           }}
         >
-          {morph.overlay.text}
+          {morphOverlay.text}
         </span>
       )}
 

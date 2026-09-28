@@ -68,19 +68,26 @@ export function useGreetingMorph(active: boolean, fullName: string) {
   // Going inactive (the patient signed out) resets everything, so the next
   // sign-in in this same visit gets the whole sequence again from the start
   // — "Welcome back, <name>" in the heading, the 8s hold, the flight.
+  // The state part is adjusted during render (React's reset-on-prop-change
+  // pattern); the ref and timer part stays in an effect.
+  const [wasActive, setWasActive] = useState(active)
+  if (wasActive !== active) {
+    setWasActive(active)
+    if (!active) { setPhase('inline'); setOverlay(null); setFlying(false); setPeeking(false) }
+  }
   useEffect(() => {
     if (active) return
     firedRef.current = false
     if (peekTimer.current) { clearTimeout(peekTimer.current); peekTimer.current = null }
-    setPhase('inline'); setOverlay(null); setFlying(false); setPeeking(false)
   }, [active])
 
   // Two-step: paint the clone at its start position first, then flip the
   // flying class on the next frame so the transform transition actually runs
-  // instead of jumping straight to its end state.
+  // instead of jumping straight to its end state. `flying` is already false
+  // on every entry to 'morphing' (every exit from it resets it), so there is
+  // nothing to clear here first.
   useLayoutEffect(() => {
     if (phase !== 'morphing' || !overlay) return
-    setFlying(false)
     let raf2 = 0
     const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => setFlying(true)) })
     return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2) }

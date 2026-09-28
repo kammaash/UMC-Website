@@ -265,7 +265,7 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
   const closing = closeMode !== 'idle'
   // A morph already draws the pill's entrance. The real pill that replaces
   // it must not run its normal opacity/scale entrance again at the handoff.
-  const settlePill = useRef(false)
+  const [settlePill, setSettlePill] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // A hidden stand-in for the pill this card collapses into, sized and
   // shaped exactly like the real one but out of flow and invisible — the
@@ -290,7 +290,7 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
     if (autoTimer.current) { clearTimeout(autoTimer.current); autoTimer.current = null }
     const from = pill.current?.getBoundingClientRect()
     morph.current = from ? { from, auto } : null
-    settlePill.current = false
+    setSettlePill(false)
     setCollapsed(false)
     writeCollapsed(false)
   }
@@ -310,7 +310,7 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
 
   const commitCollapse = (fromMorph = false) => {
     if (timer.current) { clearTimeout(timer.current); timer.current = null }
-    settlePill.current = fromMorph
+    setSettlePill(fromMorph)
     setCloseMode('idle')
     setCollapsed(true)
     writeCollapsed(true)
@@ -345,7 +345,7 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
 
   if (collapsed) {
     return (
-      <button type="button" ref={pill} className={`umc-install-pill${settlePill.current ? ' is-morph-settled' : ''}`} onClick={handleReopen}>
+      <button type="button" ref={pill} className={`umc-install-pill${settlePill ? ' is-morph-settled' : ''}`} onClick={handleReopen}>
         <span className="umc-install-pill-bell" aria-hidden="true"><Glyph name="phone-vibrate" /></span>
         Set up reminders
         <span className="umc-install-pill-caret" aria-hidden="true">▸</span>

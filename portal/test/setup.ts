@@ -8,11 +8,13 @@ vi.mock('../src/shared/lib/firebase', () => ({
   app: {},
 }))
 
-// Node 25+ defines its own global `localStorage`, which is undefined unless
-// Node is started with --localstorage-file, and it shadows jsdom's. Give the
-// tests an in-memory one whenever the environment doesn't provide it.
-// (sessionStorage is unaffected.)
-if (typeof globalThis.localStorage === 'undefined') {
+// Node 25+ defines its own global `localStorage`, which shadows jsdom's. Without
+// --localstorage-file it is either undefined or (Node 25.2+) an object with no
+// methods at all, so `localStorage.clear()` throws. Give the tests an in-memory
+// one whenever the environment's is unusable. (sessionStorage is unaffected.)
+const hasStorage = (s: unknown): s is Storage =>
+  typeof s === 'object' && s !== null && typeof (s as Storage).getItem === 'function'
+if (!hasStorage(globalThis.localStorage)) {
   const items = new Map<string, string>()
   const memory: Storage = {
     get length() { return items.size },

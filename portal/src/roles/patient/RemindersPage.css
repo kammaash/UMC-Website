@@ -104,7 +104,12 @@ html:has(.umc-rem-root), html:has(.umc-rem-root) body { overscroll-behavior: non
   font-family: var(--mono); font-size: 10px; font-weight: 700;
   letter-spacing: 0.26em; text-transform: uppercase; color: var(--ink-faint);
 }
-.umc-rem-brand img { width: 26px; height: 26px; filter: invert(1); opacity: 0.9; }
+/* app_logo.png is a black mark on an opaque cream square (255, 254, 250), not
+   a transparent one. A full invert(1) turns that square into a blue-tinged
+   near-black (1, 2, 6) — visibly darker than the page's #0b0b0b, a box around
+   the mark. grayscale drops the tint and invert(0.955) stops just short of
+   black, so the square lands on the page's own colour and disappears. */
+.umc-rem-brand img { width: 26px; height: 26px; filter: grayscale(1) invert(0.955); opacity: 0.9; }
 
 /* ── the live reminders-status light (top right, beside the corner) ──────
    A passive readout, not a control — green once push is actually enabled

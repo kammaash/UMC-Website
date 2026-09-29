@@ -66,6 +66,11 @@
   color: var(--ink);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
+  /* Android Chrome washes a translucent blue box over anything tapped. Every
+     control here already answers a press in the page's own way (a small
+     press-in, :active), so the blue is switched off — inherited, so it
+     covers the sign-in modal and the sheets inside the page as well. */
+  -webkit-tap-highlight-color: transparent;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -890,3 +895,9 @@ html:has(.umc-rem-root), html:has(.umc-rem-root) body { overscroll-behavior: non
   letter-spacing: 0; text-transform: none;
 }
 .umc-rem-root:lang(te) .umc-otp-btn { letter-spacing: 0; text-transform: none; }
+
+/* Pressed states for the controls that relied on the browser's tap highlight
+   for feedback, now that it is off. */
+.umc-rem-root .umc-otp-btn:active:not(:disabled) { transform: scale(0.98); opacity: 0.85; }
+.umc-install-pill:active { transform: scale(0.97); }
+.umc-lang-select:active { background: rgba(255, 255, 255, 0.12); }

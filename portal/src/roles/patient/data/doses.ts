@@ -14,15 +14,19 @@
 export interface TabletDoc {
   id: string
   medication?: { name?: string; dosage?: string; strength?: string; form?: string } | null
-  schedule?: { times?: unknown; daysOfWeek?: unknown; reminderEnabled?: unknown } | null
+  schedule?: { times?: unknown; daysOfWeek?: unknown; reminderEnabled?: unknown; durationDays?: unknown } | null
   caregiverSettings?: { lateWindow?: string } | null
+  // when the prescription was written: a Firestore Timestamp, or a Date
+  createdAt?: { toMillis?: () => number; toDate?: () => Date } | Date | null
 }
 export interface LogDoc {
   id: string
   status?: string
   takenAt?: { toMillis?: () => number } | null
 }
-export type DoseStatus = 'upcoming' | 'due' | 'taken' | 'taken_late' | 'missed'
+// 'completed' is not a dose: it is a finished course, listed once (see
+// buildTodayDoses). It has no time, no log, and nothing to tap.
+export type DoseStatus = 'upcoming' | 'due' | 'taken' | 'taken_late' | 'missed' | 'completed'
 export interface Dose {
   tabletId: string
   medicationName: string
@@ -95,6 +99,30 @@ export function localParts(now: Date, zone: string | null | undefined): LocalPar
   }
 }
 
+// True when a fixed-length course is over, judged in the group's own zone:
+// day 1 is the calendar day of `createdAt` where the patient lives, and the
+// course has ended once today is on or after the day that follows the last
+// dosing day. No createdAt or a non-positive durationDays = an indefinite
+// course, which never ends on its own. The same rule as the server's
+// medicationTimeHelpers.courseEnded and the app's course_end.dart, so the
+// page, the reminder sender and the app agree on the day a course stops.
+export function courseEnded(tablet: Pick<TabletDoc, 'schedule' | 'createdAt'>, local: LocalParts): boolean {
+  const days = Number(tablet.schedule?.durationDays)
+  if (tablet.schedule?.durationDays == null || !Number.isFinite(days) || days <= 0) return false
+  const raw = tablet.createdAt
+  let ms: number | null = null
+  if (raw instanceof Date) ms = raw.getTime()
+  else if (raw && typeof raw.toMillis === 'function') ms = raw.toMillis()
+  else if (raw && typeof raw.toDate === 'function') ms = raw.toDate().getTime()
+  if (ms === null || !Number.isFinite(ms)) return false
+  // Whole calendar days, so the sum is done on the date alone (at UTC noon,
+  // clear of any zone's midnight) and compared as yyyy-MM-dd text.
+  const start = localParts(new Date(ms), local.zone).dateStr
+  const end = new Date(`${start}T12:00:00Z`)
+  end.setUTCDate(end.getUTCDate() + Math.trunc(days))
+  return local.dateStr >= end.toISOString().slice(0, 10)
+}
+
 const TAKEN = new Set(['taken', 'taken_late', 'taken_on_time'])
 
 export function buildTodayDoses(tablets: TabletDoc[], logs: LogDoc[], local: LocalParts): Dose[] {
@@ -106,6 +134,25 @@ export function buildTodayDoses(tablets: TabletDoc[], logs: LogDoc[], local: Loc
     const schedule = t.schedule
     const medication = t.medication
     if (!schedule || !medication) continue
+    // A finished course has no doses today. It is listed ONCE, as a
+    // 'completed' row — exactly what the app's home page does
+    // (medication_tracking_service.dart) — rather than as doses to take
+    // that the sender, rightly, no longer reminds anyone of.
+    if (courseEnded(t, local)) {
+      out.push({
+        tabletId: t.id,
+        medicationName: String(medication.name || 'Medication'),
+        dosage: [medication.strength, medication.dosage].map((s) => (s || '').toString().trim()).filter(Boolean).join(' · '),
+        scheduledTime: '',
+        scheduledMinutes: Number.POSITIVE_INFINITY,   // after every real dose
+        date: local.dateStr,
+        logId: `${t.id}_completed`,                   // a list key only; never a log
+        reminderEnabled: false,
+        lateWindowMinutes: null,
+        status: 'completed',
+      })
+      continue
+    }
     const days = Array.isArray(schedule.daysOfWeek) ? (schedule.daysOfWeek as unknown[]) : []
     if (!days.includes('All') && !days.includes(currentDay)) continue
     const times = Array.isArray(schedule.times) ? (schedule.times as unknown[]) : []
@@ -138,7 +185,8 @@ export function buildTodayDoses(tablets: TabletDoc[], logs: LogDoc[], local: Loc
       })
     }
   }
-  return out.sort((a, b) => a.scheduledMinutes - b.scheduledMinutes || a.medicationName.localeCompare(b.medicationName))
+  // (Infinity - Infinity is NaN, which || passes on to the name.)
+  return out.sort((a, b) => (a.scheduledMinutes - b.scheduledMinutes) || a.medicationName.localeCompare(b.medicationName))
 }
 
 // Same classification as the app (markAsTaken) and markDoseFromPush: late

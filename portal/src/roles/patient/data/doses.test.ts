@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseScheduledMinutes, getDayAbbreviation, parseLateWindow, doseLogId, localParts,
-  buildTodayDoses, isTakenLate, type TabletDoc,
+  buildTodayDoses, isTakenLate, courseEnded, type TabletDoc,
 } from './doses'
 
 describe('server-mirrored helpers', () => {
@@ -90,5 +90,81 @@ describe('isTakenLate', () => {
   it('a 0-minute window still counts as configured — late the instant the scheduled minute passes', () => {
     expect(isTakenLate({ scheduledMinutes: 480, lateWindowMinutes: 0 }, 480)).toBe(false)
     expect(isTakenLate({ scheduledMinutes: 480, lateWindowMinutes: 0 }, 481)).toBe(true)
+  })
+})
+
+// ── courseEnded ──────────────────────────────────────────────────────────
+// The same cases, with the same dates, as the server's
+// functions/medicationTimeHelpers.test.js — the page, the sender and the app
+// must agree on the day a course stops. Day 1 is the calendar day the
+// prescription was written, in the group's zone; the course is over from the
+// day after the last dosing day.
+const IST = 'Asia/Kolkata'
+const stamp = (iso: string) => ({ toMillis: () => new Date(iso).getTime() })
+const writtenAt = stamp('2026-09-01T09:00:00+05:30')
+const at = (iso: string) => localParts(new Date(iso), IST)
+const course = (durationDays: unknown, extra: Partial<TabletDoc> = {}): TabletDoc => ({
+  id: 'tab1', createdAt: writtenAt,
+  medication: { name: 'Dolo 650' },
+  schedule: { reminderEnabled: true, daysOfWeek: ['All'], times: ['9:00 AM'], durationDays },
+  ...extra,
+})
+
+describe('courseEnded (mirrors the server and the app)', () => {
+  it('a 14-day course is live through day 14 and over on day 15', () => {
+    expect(courseEnded(course(14), at('2026-09-14T23:59:00+05:30'))).toBe(false)
+    expect(courseEnded(course(14), at('2026-09-15T00:00:00+05:30'))).toBe(true)
+  })
+  it('day 1 is judged in the group zone, not UTC', () => {
+    // Written 1 Sep 01:30 IST = 31 Aug 20:00 UTC. A 1-day course ends at
+    // 2 Sep 00:00 IST, not 1 Sep 00:00 IST.
+    const t = course(1, { createdAt: stamp('2026-09-01T01:30:00+05:30') })
+    expect(courseEnded(t, at('2026-09-01T23:00:00+05:30'))).toBe(false)
+    expect(courseEnded(t, at('2026-09-02T00:01:00+05:30'))).toBe(true)
+  })
+  it('an indefinite course never ends', () => {
+    const far = at('2030-01-01T09:00:00+05:30')
+    expect(courseEnded(course(undefined), far)).toBe(false)
+    expect(courseEnded(course(0), far)).toBe(false)
+    expect(courseEnded(course(-3), far)).toBe(false)
+    expect(courseEnded(course('soon'), far)).toBe(false)
+    expect(courseEnded(course(5, { createdAt: undefined }), far)).toBe(false)
+    expect(courseEnded(course(5, { createdAt: null }), far)).toBe(false)
+    expect(courseEnded({ id: 'x' }, far)).toBe(false)
+  })
+  it('accepts a Date or a toDate() timestamp too', () => {
+    const d = new Date('2026-09-01T09:00:00+05:30')
+    expect(courseEnded(course(2, { createdAt: d }), at('2026-09-03T00:00:00+05:30'))).toBe(true)
+    expect(courseEnded(course(2, { createdAt: { toDate: () => d } }), at('2026-09-02T12:00:00+05:30'))).toBe(false)
+  })
+  it('counts across a month end and a year end', () => {
+    const t = course(10, { createdAt: stamp('2026-12-25T10:00:00+05:30') })
+    expect(courseEnded(t, at('2027-01-03T23:59:00+05:30'))).toBe(false)
+    expect(courseEnded(t, at('2027-01-04T00:00:00+05:30'))).toBe(true)
+  })
+})
+
+describe('buildTodayDoses — a finished course', () => {
+  const today = at('2026-09-10T10:00:00+05:30')
+  it('has no doses today: it is listed once, as completed, however many times a day it was taken', () => {
+    const ended = course(3, { schedule: { reminderEnabled: true, daysOfWeek: ['All'], times: ['9:00 AM', '9:00 PM'], durationDays: 3 } })
+    const out = buildTodayDoses([ended], [], today)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ tabletId: 'tab1', medicationName: 'Dolo 650', status: 'completed', scheduledTime: '' })
+  })
+  it('sorts after the doses still to take, and leaves a live course alone', () => {
+    const live = course(30, { id: 'tab2', medication: { name: 'Metformin' }, schedule: { reminderEnabled: true, daysOfWeek: ['All'], times: ['9:00 PM'], durationDays: 30 } })
+    const out = buildTodayDoses([course(3), live], [], today)
+    expect(out.map((d) => [d.tabletId, d.status])).toEqual([['tab2', 'upcoming'], ['tab1', 'completed']])
+  })
+  it('is listed even on a weekday the course was never scheduled for', () => {
+    // 10 Sep 2026 is a Thursday
+    const ended = course(3, { schedule: { reminderEnabled: true, daysOfWeek: ['Mo'], times: ['9:00 AM'], durationDays: 3 } })
+    expect(buildTodayDoses([ended], [], today).map((d) => d.status)).toEqual(['completed'])
+  })
+  it('never carries a log id a dose could be written under', () => {
+    const [done] = buildTodayDoses([course(3)], [], today)
+    expect(done.logId).not.toBe(doseLogId('tab1', '2026-09-10', '9:00 AM'))
+    expect(done.logId).toBe('tab1_completed')
   })
 })

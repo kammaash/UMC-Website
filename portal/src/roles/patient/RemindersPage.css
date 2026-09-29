@@ -390,6 +390,9 @@ html:has(.umc-rem-root), html:has(.umc-rem-root) body { overscroll-behavior: non
   text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--accent);
 }
 .umc-rem-dose-noremind { color: var(--ink-faint); }
+/* A finished course: on the list, but set back — flat, no lift — so the
+   doses still to take are what the eye lands on. */
+.umc-rem-dose.is-completed { box-shadow: none; background: transparent; }
 .umc-rem-dose-err { margin-top: 6px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--error); }
 
 /* ── "you're not registered" takeover ─────────────────────────────

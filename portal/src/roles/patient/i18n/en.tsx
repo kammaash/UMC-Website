@@ -158,8 +158,10 @@ export const en: Strings = {
     emptySub: 'When your doctor adds one, it appears here.',
     noReminder: 'No reminder',
     saveFailed: "Couldn't save. Try again.",
-    status: { upcoming: 'Upcoming', due: 'Due', taken: 'Taken', taken_late: 'Taken late', missed: 'Missed' },
+    // 'completed' is the app's own wording for a finished course (courseCompletedLabel)
+    status: { upcoming: 'Upcoming', due: 'Due', taken: 'Taken', taken_late: 'Taken late', missed: 'Missed', completed: 'Cycle complete' },
     ariaDone: (name, time, status) => `${name} at ${time}, ${status}`,
+    ariaOver: (name, status) => `${name}, ${status}`,
     ariaMark: (name, time) => `Mark ${name} at ${time} as taken`,
   },
 

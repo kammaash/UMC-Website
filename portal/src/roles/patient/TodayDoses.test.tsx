@@ -90,4 +90,34 @@ describe('TodayDoses', () => {
     render(<TodayDoses gid="G1" uid="u1" highlightLogId={null} />)
     expect(screen.getByText(/Couldn't load your medicines/)).toBeInTheDocument()
   })
+
+  // A finished course (decision 2026-09-30, as the app's home page does): it
+  // stays on the list, once, saying it is over — not as a dose to take.
+  describe('a finished course', () => {
+    const done = dose({ tabletId: 't9', logId: 't9_completed', medicationName: 'Dolo 650', scheduledTime: '', scheduledMinutes: Number.POSITIVE_INFINITY, status: 'completed' })
+    it('says the course is complete and cannot be tapped', async () => {
+      vi.mocked(hook.useTodayDoses).mockReturnValue({ ...base, doses: [done] })
+      render(<TodayDoses gid="G1" uid="u1" highlightLogId={null} />)
+      const tile = screen.getByRole('button', { name: 'Dolo 650, Cycle complete' })
+      expect(tile).toBeDisabled()
+      expect(tile).toHaveTextContent('Cycle complete')
+      await userEvent.click(tile)
+      expect(actions.markDoseTaken).not.toHaveBeenCalled()
+    })
+    it('is not counted among the doses to take', () => {
+      vi.mocked(hook.useTodayDoses).mockReturnValue({ ...base, doses: [dose({ status: 'taken' }), done] })
+      render(<TodayDoses gid="G1" uid="u1" highlightLogId={null} />)
+      expect(screen.getByText('1 of 1 taken')).toBeInTheDocument()
+    })
+    it('shows no count at all when nothing is left to take', () => {
+      vi.mocked(hook.useTodayDoses).mockReturnValue({ ...base, doses: [done] })
+      render(<TodayDoses gid="G1" uid="u1" highlightLogId={null} />)
+      expect(screen.queryByText(/of \d+ taken/)).not.toBeInTheDocument()
+    })
+    it('does not say "No reminder" — there is nothing to be reminded of', () => {
+      vi.mocked(hook.useTodayDoses).mockReturnValue({ ...base, doses: [{ ...done, reminderEnabled: false }] })
+      render(<TodayDoses gid="G1" uid="u1" highlightLogId={null} />)
+      expect(screen.queryByText(/No reminder/)).not.toBeInTheDocument()
+    })
+  })
 })

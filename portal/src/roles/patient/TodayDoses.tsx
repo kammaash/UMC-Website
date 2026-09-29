@@ -12,8 +12,10 @@ import { useStrings } from './i18n/useStrings'
 
 // TabletTile._getTextColor: only taken/taken_late/missed get a colour
 // (green/orange/red) — pending/due/upcoming are all just the ink colour.
+// A finished course is dimmed, as the app dims it (drawer.dart, grey.400).
 const STATUS_ACCENT: Record<DoseStatus, string> = {
   upcoming: 'var(--ink)', due: 'var(--ink)', taken: 'var(--success-600)', taken_late: 'var(--warning-700)', missed: 'var(--error)',
+  completed: 'var(--ink-faint)',
 }
 
 export function TodayDoses({ gid, uid, highlightLogId }: { gid: string; uid: string; highlightLogId: string | null }) {
@@ -37,13 +39,16 @@ export function TodayDoses({ gid, uid, highlightLogId }: { gid: string; uid: str
     finally { setBusy(null) }
   }
 
+  // A finished course is on the list but is not a dose: it is not counted.
+  const toTake = doses.filter((d) => d.status !== 'completed')
+
   return (
     <section className="umc-rem-today" aria-label={t.doses.sectionLabel}>
       <div className="umc-rem-today-head">
         <h2 className="umc-rem-today-title">{t.doses.today(dateLabel)}</h2>
-        {!loading && doses.length > 0 && (
+        {!loading && toTake.length > 0 && (
           <p className="umc-rem-today-count">
-            {t.doses.takenCount(doses.filter((d) => d.status === 'taken' || d.status === 'taken_late').length, doses.length)}
+            {t.doses.takenCount(toTake.filter((d) => d.status === 'taken' || d.status === 'taken_late').length, toTake.length)}
           </p>
         )}
       </div>
@@ -61,19 +66,23 @@ export function TodayDoses({ gid, uid, highlightLogId }: { gid: string; uid: str
       ) : (
         <ul className="umc-rem-doses">
           {doses.map((d) => {
+            const over = d.status === 'completed'
             const done = d.status === 'taken' || d.status === 'taken_late'
             const hl = d.logId === highlightLogId
             const busyHere = busy === d.logId
-            const sub = [d.dosage, d.scheduledTime].filter(Boolean).join(' • ')
+            // a finished course says so where a dose gives its time
+            const sub = [d.dosage, over ? t.doses.status.completed : d.scheduledTime].filter(Boolean).join(' • ')
             return (
               <li key={d.logId} ref={hl ? highlightRef : undefined}>
                 <button
                   type="button"
                   className={`umc-rem-dose is-${d.status}${hl ? ' is-highlight' : ''}`}
                   style={{ ['--accent' as string]: STATUS_ACCENT[d.status] }}
-                  disabled={done || busyHere}
-                  onClick={() => take(d)}
-                  aria-label={done ? t.doses.ariaDone(d.medicationName, d.scheduledTime, t.doses.status[d.status]) : t.doses.ariaMark(d.medicationName, d.scheduledTime)}
+                  disabled={over || done || busyHere}
+                  onClick={() => { if (!over) void take(d) }}
+                  aria-label={over ? t.doses.ariaOver(d.medicationName, t.doses.status.completed)
+                    : done ? t.doses.ariaDone(d.medicationName, d.scheduledTime, t.doses.status[d.status])
+                    : t.doses.ariaMark(d.medicationName, d.scheduledTime)}
                 >
                   <div className="umc-rem-dose-name">
                     {d.medicationName}
@@ -82,7 +91,7 @@ export function TodayDoses({ gid, uid, highlightLogId }: { gid: string; uid: str
                   {sub && (
                     <div className="umc-rem-dose-sub">
                       {sub}
-                      {!d.reminderEnabled && <span className="umc-rem-dose-noremind"> · {t.doses.noReminder}</span>}
+                      {!over && !d.reminderEnabled && <span className="umc-rem-dose-noremind"> · {t.doses.noReminder}</span>}
                     </div>
                   )}
                   {failed === d.logId && <div className="umc-rem-dose-err" role="alert">{t.doses.saveFailed}</div>}

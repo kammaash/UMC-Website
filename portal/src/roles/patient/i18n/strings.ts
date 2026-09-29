@@ -146,6 +146,7 @@ export interface Strings {
     saveFailed: string
     status: Record<DoseStatus, string>
     ariaDone: (name: string, time: string, status: string) => string
+    ariaOver: (name: string, status: string) => string
     ariaMark: (name: string, time: string) => string
   }
 

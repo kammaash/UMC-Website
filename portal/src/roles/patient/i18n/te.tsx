@@ -179,8 +179,11 @@ export const te: Strings = {
     status: {
       upcoming: 'రాబోతోంది', due: 'వేసుకోవాలి', taken: 'వేసుకున్నారు',
       taken_late: 'ఆలస్యంగా వేసుకున్నారు', missed: 'వేసుకోలేదు',
+      // the app's own wording for a finished course (courseCompletedLabel)
+      completed: 'కోర్సు పూర్తయింది',
     },
     ariaDone: (name, time, status) => `${name}, ${time}, ${status}`,
+    ariaOver: (name, status) => `${name}, ${status}`,
     ariaMark: (name, time) => `${time} కు ${name} వేసుకున్నట్టు గుర్తించండి`,
   },
 

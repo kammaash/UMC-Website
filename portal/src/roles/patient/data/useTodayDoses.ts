@@ -35,7 +35,7 @@ export function useTodayDoses(gid: string | null): TodayDoses {
 
   const tablets = useQueryData<TabletDoc>(
     gid ? collection(db, 'patientGroups', gid, 'tablets') : null,
-    (id, d) => ({ id, medication: d.medication ?? null, schedule: d.schedule ?? null, caregiverSettings: d.caregiverSettings ?? null }),
+    (id, d) => ({ id, medication: d.medication ?? null, schedule: d.schedule ?? null, caregiverSettings: d.caregiverSettings ?? null, createdAt: d.createdAt ?? null }),
     [gid],
   )
   const logs = useQueryData<LogDoc>(

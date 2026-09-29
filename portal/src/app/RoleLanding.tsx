@@ -16,7 +16,7 @@ export function RoleLanding() {
       : null
   useEffect(() => { if (redirect) window.location.href = redirect }, [redirect])
 
-  if (status === 'unknown' || redirect) return <div style={{ padding: 40 }}>Loading…</div>
+  if (status === 'unknown' || status === 'error' || redirect) return <div style={{ padding: 40 }}>Loading…</div>
   // Single role today (doctor); its portal lives at /dashboard.
   return <Navigate to="/dashboard" replace />
 }

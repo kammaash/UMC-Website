@@ -5,6 +5,11 @@ describe('resolveRoleAccess', () => {
   it('returns "loading" while auth state is unknown', () => {
     expect(resolveRoleAccess('doctor', { status: 'unknown', profile: null })).toBe('loading')
   })
+  // A failed profile read is not "no profile": treating it as one would send
+  // a doctor with a bad connection to the wrong-role page.
+  it('keeps waiting when the profile could not be read', () => {
+    expect(resolveRoleAccess('doctor', { status: 'error', profile: null })).toBe('loading')
+  })
   it('returns "unauthenticated" when signed out', () => {
     expect(resolveRoleAccess('doctor', { status: 'signed-out', profile: null })).toBe('unauthenticated')
   })

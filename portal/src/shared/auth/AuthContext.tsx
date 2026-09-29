@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   onAuthStateChanged, signInWithPopup, GoogleAuthProvider, OAuthProvider,
   signInWithPhoneNumber, type ConfirmationResult, type ApplicationVerifier,
@@ -7,6 +7,7 @@ import {
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
 import type { AuthStatus, UserProfile } from './access'
+import { withTimeout, PROFILE_READ_TIMEOUT_MS } from './profileRead'
 
 interface AuthValue {
   status: AuthStatus
@@ -16,6 +17,9 @@ interface AuthValue {
   signInWithApple: (forceSelect?: boolean) => Promise<void>
   signInWithPhone: (phoneNumber: string, verifier: ApplicationVerifier) => Promise<ConfirmationResult>
   logout: () => Promise<void>
+  // Reads users/{uid} again after status 'error'. Status is 'unknown' while
+  // it does. Nothing happens when nobody is signed in.
+  retryProfile: () => void
   // True iff `users/{uid}` exists with a role — i.e. an already-registered member.
   isRegisteredUser: (uid: string) => Promise<boolean>
   // Undo a just-completed sign-in (deletes the freshly-created auth account so an
@@ -30,15 +34,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
 
-  useEffect(() => {
-    return onAuthStateChanged(auth, async (u) => {
-      setUser(u)
-      if (!u) { setProfile(null); setStatus('signed-out'); return }
-      const snap = await getDoc(doc(db, 'users', u.uid))
+  // Each read of users/{uid} takes a number; only the latest may report.
+  // Without it a read that finishes late — after a sign-out, or after a
+  // second account signed in — would put its own, stale answer on screen.
+  const latestRead = useRef(0)
+  const loadProfile = useCallback(async (u: User) => {
+    const mine = ++latestRead.current
+    try {
+      const snap = await withTimeout(getDoc(doc(db, 'users', u.uid)), PROFILE_READ_TIMEOUT_MS)
+      if (mine !== latestRead.current) return
       setProfile(snap.exists() ? (snap.data() as UserProfile) : null)
       setStatus('signed-in')
-    })
+    } catch (err) {
+      // Until 2026-09-30 nothing caught this: the read rejected inside the
+      // listener and status stayed 'unknown', so every page sat on
+      // "Loading…" with no way on for as long as it stayed open.
+      if (mine !== latestRead.current) return
+      console.error('profile read failed:', err)
+      setProfile(null)
+      setStatus('error')
+    }
   }, [])
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (u) => {
+      setUser(u)
+      if (!u) { latestRead.current++; setProfile(null); setStatus('signed-out'); return }
+      void loadProfile(u)
+    })
+  }, [loadProfile])
+
+  const retryProfile = () => {
+    const u = auth.currentUser
+    if (!u) return
+    setStatus('unknown')
+    void loadProfile(u)
+  }
 
   // forceSelect → always show the account chooser instead of silently reusing
   // the provider's cached account (used after a wrong-role bounce so the
@@ -72,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthCtx.Provider value={{
       status, user, profile,
-      signInWithGoogle, signInWithApple, signInWithPhone, logout,
+      signInWithGoogle, signInWithApple, signInWithPhone, logout, retryProfile,
       isRegisteredUser, rejectCurrentUser,
     }}>
       {children}

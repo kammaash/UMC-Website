@@ -135,6 +135,50 @@ describe('RemindersPage — sign-in shell', () => {
   })
 })
 
+// The bug (2026-09-30): a failed read of the patient's account left the
+// page on "Loading…" for as long as it stayed open. The auth provider now
+// reports it (AuthContext.test.tsx); this is what the patient sees.
+describe('RemindersPage — the account could not be loaded', () => {
+  it('says so, with a way to try again and a way out — not an endless "Loading…"', () => {
+    renderWith({ status: 'error', user: patientB })
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't load your account/)
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()
+    // nothing of the signed-in page is attempted on an account it could not read
+    expect(claimActions.previewClaim).not.toHaveBeenCalled()
+  })
+  it('Try again reads the account again', async () => {
+    const retryProfile = vi.fn()
+    renderWith({ status: 'error', user: patientB, retryProfile })
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(retryProfile).toHaveBeenCalledTimes(1)
+  })
+  it('tries again by itself when the phone comes back online', () => {
+    const retryProfile = vi.fn()
+    renderWith({ status: 'error', user: patientB, retryProfile })
+    act(() => { window.dispatchEvent(new Event('online')) })
+    expect(retryProfile).toHaveBeenCalledTimes(1)
+  })
+  it('does not listen for that once the account has loaded', () => {
+    const retryProfile = vi.fn()
+    renderWith({ status: 'signed-out', retryProfile })
+    act(() => { window.dispatchEvent(new Event('online')) })
+    expect(retryProfile).not.toHaveBeenCalled()
+  })
+  it('Sign out still turns this phone\'s reminders off first', async () => {
+    renderWith({ status: 'error', user: patientB })
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+    await waitFor(() => expect(authActions.signOutReminders).toHaveBeenCalledTimes(1))
+    expect(pushActions.deactivatePushToken).toHaveBeenCalledWith(null)
+  })
+  it('keeps the language switch within reach', () => {
+    renderWith({ status: 'error', user: patientB })
+    expect(screen.getByRole('combobox', { name: 'Language' })).toBeInTheDocument()
+  })
+})
+
 describe('RemindersPage — claim step', () => {
   it('previews with no arguments and automatically claims the OTP-matched patient', async () => {
     vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: true, groupId: 'G1', patientName: 'Patient B', doctorName: 'Ranganath', isPrimary: true })

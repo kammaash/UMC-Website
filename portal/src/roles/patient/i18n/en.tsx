@@ -52,6 +52,7 @@ export const en: Strings = {
     tryAgain: 'Try again',
     signOut: 'Sign out',
     errors: {
+      'account-failed': "Couldn't load your account. Check your connection and try again.",
       'lookup-failed': "Couldn't look up your record. Check your connection and try again.",
       'failed-precondition': 'This record is already set up on another account, or no longer exists. Ask your doctor to check.',
       'permission-denied': 'This record is not for your phone number. Ask your doctor to check the number they saved.',

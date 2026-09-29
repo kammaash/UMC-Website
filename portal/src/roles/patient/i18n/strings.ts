@@ -52,7 +52,7 @@ export interface Strings {
     errorHeading: string
     tryAgain: string
     signOut: string
-    errors: Record<ClaimErrorReason | 'lookup-failed', string>
+    errors: Record<ClaimErrorReason | 'lookup-failed' | 'account-failed', string>
   }
 
   unregistered: {

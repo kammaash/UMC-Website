@@ -34,6 +34,12 @@ describe('RequireRole', () => {
     Object.defineProperty(window, 'location', { configurable: true, writable: true, value: original })
   })
 
+  it('does not redirect, or show the page, when the profile could not be read', () => {
+    renderAt({ status: 'error', profile: null })
+    expect(screen.queryByText('PROTECTED')).not.toBeInTheDocument()
+    expect(window.location.href).toBe('')
+  })
+
   it('renders protected content for a matching role', () => {
     renderAt({ status: 'signed-in', profile: { role: 'doctor' } })
     expect(screen.getByText('PROTECTED')).toBeInTheDocument()

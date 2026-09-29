@@ -171,6 +171,12 @@ describe('RemindersPage — language', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(en.claim.errors['lookup-failed'])
   })
 
+  it('says in Telugu that the account could not be loaded', () => {
+    renderWith({ status: 'error', user: patient })
+    expect(screen.getByRole('alert')).toHaveTextContent(te.claim.errors['account-failed'])
+    expect(screen.getByRole('button', { name: te.claim.tryAgain })).toBeInTheDocument()
+  })
+
   it('moves the switch into the account sheet once the patient is on their dashboard', async () => {
     const user = userEvent.setup()
     renderWith({ status: 'signed-in', user: patient, profile: claimedProfile })

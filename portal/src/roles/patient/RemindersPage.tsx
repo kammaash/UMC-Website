@@ -110,7 +110,7 @@ function UnregisteredOverlay({ nonPatient, onDismiss }: { nonPatient: boolean; o
 }
 
 export function RemindersPage() {
-  const { status, user, profile } = useAuth()
+  const { status, user, profile, retryProfile } = useAuth()
   const lang = useLang()
   const t = useStrings()
   const [otpStep, setOtpStep] = useState<OtpStep>('idle')
@@ -378,6 +378,18 @@ export function RemindersPage() {
 
   const handleRetry = () => { lookedUpFor.current = null; setNotice(null); setRetryKey((k) => k + 1) }
 
+  // The account itself could not be read (status 'error'). Nearly always the
+  // connection, so the moment the phone is back online the page tries again
+  // without being asked; Try again is there for everything else.
+  useEffect(() => {
+    if (status !== 'error') return
+    window.addEventListener('online', retryProfile)
+    return () => window.removeEventListener('online', retryProfile)
+    // retryProfile is a new function on every render of the provider; the
+    // listener is re-made only when the status changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
+
   // Sign-out must turn this browser's push token off FIRST: the rule on
   // webPushTokens is `uid == patient_uid`, so once the session is gone the
   // patient can no longer stop their own reminders — and this phone would keep
@@ -410,6 +422,21 @@ export function RemindersPage() {
   let body
   if (status === 'unknown') {
     body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />{t.loading}</div>
+  } else if (status === 'error') {
+    // Somebody is signed in, but their account could not be read. Not the
+    // welcome screen (they are not signed out) and not the dashboard (nothing
+    // is known about them): say so, and offer a retry and a way out.
+    body = (
+      <main className="umc-rem-main">
+        <h1 className="umc-rem-hdg">{t.claim.errorHeading}</h1>
+        <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.claim.errors['account-failed']}</p>
+        {signOutError && <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.dash.signOutBlocked}</p>}
+        <button type="button" className="umc-btn primary full" onClick={retryProfile}>{t.claim.tryAgain}</button>
+        <button type="button" className="umc-btn ghost full" disabled={signingOut} onClick={handleSignOut}>
+          {signingOut ? <><span className="umc-spin" aria-hidden="true" />{t.account.turningOff}</> : t.claim.signOut}
+        </button>
+      </main>
+    )
   } else if (status === 'signed-out' || !user) {
     body = (
       <main className="umc-rem-main">

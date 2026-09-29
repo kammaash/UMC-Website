@@ -12,7 +12,7 @@ import { getMessaging, getToken, isSupported, onMessage, type MessagePayload } f
 import { doc, getDoc, setDoc, serverTimestamp, deleteField } from 'firebase/firestore'
 import { app, db } from '../../../shared/lib/firebase'
 import { detectPlatform, type Platform, type TokenPlatform } from './platformGate'
-import { registerAction, type ExistingToken, type RegisterAction } from './pushDecision'
+import { registerAction, needsTurningOff, signOutTargets, type ExistingToken, type RegisterAction, type TokenRef } from './pushDecision'
 import { tokenDocId } from './tokenDocId'
 
 // ── platform facts (DOM) ─────────────────────────────────────────────────
@@ -105,9 +105,31 @@ export class PushSetupError extends Error {
   }
 }
 
-// The token this browser last registered, so sign-out can turn exactly that
+// The token this page load registered, so sign-out can turn exactly that
 // doc off without asking FCM for a token all over again.
 let lastToken: string | null = null
+
+// …and the last one this BROWSER registered, on any visit, kept where a
+// reload cannot lose it. Sign-out needs it for the visits that never get as
+// far as a token of their own (FCM unreachable, the save failing, the record
+// lookup failing) while an earlier visit's token is still on. Only the doc's
+// address is kept — the group and the token's hash — never the token.
+// Storage can throw (private modes, blocked site data); sign-out then has
+// only this page load's token to go by, as it did before.
+const REMEMBER_KEY = 'umc-push-token'
+function readRemembered(): TokenRef | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(REMEMBER_KEY) || 'null') as Partial<TokenRef> | null
+    return raw && typeof raw.gid === 'string' && typeof raw.id === 'string' && raw.gid && raw.id
+      ? { gid: raw.gid, id: raw.id } : null
+  } catch { return null }
+}
+function remember(ref: TokenRef): void {
+  try { localStorage.setItem(REMEMBER_KEY, JSON.stringify(ref)) } catch { /* lastToken still holds for this view */ }
+}
+function forget(): void {
+  try { localStorage.removeItem(REMEMBER_KEY) } catch { /* nothing to do */ }
+}
 
 // Returns what happened: 'register' (this phone is on) or 'app-owns' (the UMC
 // app has taken reminders over — the token stays off; see pushDecision.ts).
@@ -123,7 +145,11 @@ export async function registerPushToken(gid: string, platform: TokenPlatform): P
   if (!token) throw new PushSetupError('no-token')
   lastToken = token
 
-  const ref = doc(db, 'patientGroups', gid, 'webPushTokens', await tokenDocId(token))
+  const id = await tokenDocId(token)
+  // Before the write, not after: if the write below fails, an earlier
+  // visit's doc under this same id may well be on.
+  remember({ gid, id })
+  const ref = doc(db, 'patientGroups', gid, 'webPushTokens', id)
   try {
     const snap = await getDoc(ref)
     const action = registerAction(snap.exists() ? (snap.data() as ExistingToken) : null)
@@ -150,14 +176,36 @@ export async function registerPushToken(gid: string, platform: TokenPlatform): P
 // signOut — and if it is skipped, the doses of the patient who just left keep
 // pushing to a phone that may now belong to someone else. Throws on a failed
 // write so the caller can refuse to sign out (decision 2026-09-18).
-export async function deactivatePushToken(gid: string): Promise<void> {
-  if (!lastToken) return   // this browser never registered — nothing to turn off
-  const ref = doc(db, 'patientGroups', gid, 'webPushTokens', await tokenDocId(lastToken))
-  await setDoc(ref, {
-    active: false,
-    deactivatedReason: 'web_signout',
-    lastSeenAt: serverTimestamp(),
-  }, { merge: true })
+//
+// Called on EVERY sign-out (decision 2026-09-29), whatever this page load
+// managed to do; it works out for itself whether this browser holds a token
+// that is on (pushDecision.ts). `gid` is null when the page never learned
+// which record this is.
+function isPermissionDenied(err: unknown): boolean {
+  return !!err && typeof err === 'object' && 'code' in err && String((err as { code: unknown }).code) === 'permission-denied'
+}
+export async function deactivatePushToken(gid: string | null): Promise<void> {
+  const currentId = lastToken ? await tokenDocId(lastToken) : null
+  for (const target of signOutTargets(gid, currentId, readRemembered())) {
+    const ref = doc(db, 'patientGroups', target.gid, 'webPushTokens', target.id)
+    try {
+      const snap = await getDoc(ref)
+      if (!needsTurningOff(snap.exists() ? (snap.data() as ExistingToken) : null)) continue
+      await setDoc(ref, {
+        active: false,
+        deactivatedReason: 'web_signout',
+        lastSeenAt: serverTimestamp(),
+      }, { merge: true })
+    } catch (err) {
+      // The rules say this account is not the record's patient (any more).
+      // Trying again cannot change that, so it must not keep them signed in
+      // for ever; every other failure can be retried, and is.
+      if (!isPermissionDenied(err)) throw err
+      console.error('push token not reachable by this account:', err)
+    }
+  }
+  lastToken = null
+  forget()
 }
 
 // ── foreground messages ──────────────────────────────────────────────────

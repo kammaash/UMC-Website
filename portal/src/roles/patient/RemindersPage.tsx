@@ -293,15 +293,22 @@ export function RemindersPage() {
   // `celebrate`: this follows the patient's own action (Enable Reminders,
   // a re-check after unblocking, Try again), so a confirmed 'enabled' earns
   // "You're all set!".
+  // The registration under way, if any. Sign-out waits for it: one that
+  // finished a moment AFTER sign-out had turned the token off would switch it
+  // straight back on, on a phone nobody is signed in to.
+  const registering = useRef<Promise<unknown> | null>(null)
   const register = async (gid: string, celebrate = true) => {
     setPush({ kind: 'registering' })
+    const attempt = registerPushToken(gid, platform.tokenPlatform)
+    registering.current = attempt
     try {
-      const action = await registerPushToken(gid, platform.tokenPlatform)
+      const action = await attempt
       const enabled = action !== 'app-owns'
       setPush({ kind: enabled ? 'enabled' : 'app-owns' })
       if (enabled && celebrate) setCelebrating(true)
     }
     catch (err) { console.error('push registration failed:', err); setPush({ kind: 'error', reason: pushErrorReason(err) }) }
+    finally { if (registering.current === attempt) registering.current = null }
   }
   useEffect(() => {
     let cancelled = false
@@ -377,19 +384,24 @@ export function RemindersPage() {
   // buzzing with their doses even after someone else signs in on it.
   // Decision 2026-09-18: if that write fails, refuse to sign out and let them
   // retry, rather than leaving a live token behind on a phone being handed on.
+  // Decision 2026-09-29: on EVERY sign-out, not only when this visit had got
+  // as far as "reminders are on". A token an earlier visit left on is just
+  // as live when today's registration failed, was blocked, or never ran —
+  // and the data layer, not this screen, knows whether there is one.
   const handleSignOut = async () => {
+    if (signingOut) return
     setNotice(null); setSignOutError(false)
-    if (claimedGid && push.kind === 'enabled') {
-      setSigningOut(true)
-      try { await deactivatePushToken(claimedGid) }
-      catch (err) {
-        console.error('push token deactivation failed:', err)
-        setSigningOut(false)
-        setSignOutError(true)
-        return
-      }
+    setSigningOut(true)
+    try {
+      await registering.current?.catch(() => {})
+      await deactivatePushToken(claimedGid)
+    } catch (err) {
+      console.error('push token deactivation failed:', err)
       setSigningOut(false)
+      setSignOutError(true)
+      return
     }
+    setSigningOut(false)
     try { await signOutReminders() }
     catch (err) { console.error('Sign-out error:', err); setNotice('sign-out-failed') }
   }
@@ -496,8 +508,11 @@ export function RemindersPage() {
       <main className="umc-rem-main">
         <h1 className="umc-rem-hdg">{t.claim.errorHeading}</h1>
         <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.claim.errors[claim.reason]}</p>
+        {signOutError && <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.dash.signOutBlocked}</p>}
         <button type="button" className="umc-btn primary full" onClick={handleRetry}>{t.claim.tryAgain}</button>
-        <button type="button" className="umc-btn ghost full" onClick={handleSignOut}>{t.claim.signOut}</button>
+        <button type="button" className="umc-btn ghost full" disabled={signingOut} onClick={handleSignOut}>
+          {signingOut ? <><span className="umc-spin" aria-hidden="true" />{t.account.turningOff}</> : t.claim.signOut}
+        </button>
       </main>
     )
   }

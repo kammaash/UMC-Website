@@ -599,7 +599,10 @@ describe('RemindersPage — sign-out turns this phone off', () => {
     expect(authActions.signOutReminders).not.toHaveBeenCalled()
   })
 
-  it('does not touch the token when this browser never had reminders on', async () => {
+  // Decision 2026-09-29: sign-out no longer goes by what THIS open managed to
+  // do. A token left on by an earlier visit is just as live, and only the
+  // data layer knows whether this browser holds one (reminderPush.test.ts).
+  it('asks for the token to be turned off even when this open never switched reminders on', async () => {
     vi.mocked(pushActions.permissionState).mockReturnValue('denied')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
     await screen.findByText(/Notifications are blocked/)
@@ -608,7 +611,79 @@ describe('RemindersPage — sign-out turns this phone off', () => {
     await userEvent.click(screen.getByText('Not you? Sign out'))
 
     await waitFor(() => expect(authActions.signOutReminders).toHaveBeenCalledTimes(1))
+    expect(pushActions.deactivatePushToken).toHaveBeenCalledWith('G0')
+    expect(vi.mocked(pushActions.deactivatePushToken).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(authActions.signOutReminders).mock.invocationCallOrder[0])
+  })
+
+  it('turns it off when turning reminders on FAILED this time — an earlier visit may have left it on', async () => {
+    vi.mocked(pushActions.permissionState).mockReturnValue('granted')
+    vi.mocked(pushActions.registerPushToken).mockRejectedValue(new Error('boom'))
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await screen.findByText(/Couldn't turn on reminders/)
+
+    await openAccountSheet()
+    await userEvent.click(screen.getByText('Not you? Sign out'))
+
+    await waitFor(() => expect(authActions.signOutReminders).toHaveBeenCalledTimes(1))
+    expect(pushActions.deactivatePushToken).toHaveBeenCalledWith('G0')
+  })
+
+  it('and refuses to sign out if that fails, whatever the page was showing', async () => {
+    vi.mocked(pushActions.permissionState).mockReturnValue('granted')
+    vi.mocked(pushActions.registerPushToken).mockRejectedValue(new Error('boom'))
+    vi.mocked(pushActions.deactivatePushToken).mockRejectedValue(new Error('offline'))
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await screen.findByText(/Couldn't turn on reminders/)
+
+    await openAccountSheet()
+    await userEvent.click(screen.getByText('Not you? Sign out'))
+
+    expect(await screen.findByText(/Couldn't turn reminders off on this phone/)).toBeInTheDocument()
+    expect(authActions.signOutReminders).not.toHaveBeenCalled()
+  })
+
+  it('waits for a registration still under way, so it cannot switch the token on after sign-out turned it off', async () => {
+    vi.mocked(pushActions.permissionState).mockReturnValue('granted')
+    let finish: (v: 'register') => void = () => {}
+    vi.mocked(pushActions.registerPushToken).mockReturnValue(new Promise((res) => { finish = res }))
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await screen.findByText('Turning on reminders…')
+
+    await openAccountSheet()
+    await userEvent.click(screen.getByText('Not you? Sign out'))
+    await act(async () => {})
     expect(pushActions.deactivatePushToken).not.toHaveBeenCalled()
+    expect(authActions.signOutReminders).not.toHaveBeenCalled()
+
+    await act(async () => { finish('register') })
+    await waitFor(() => expect(authActions.signOutReminders).toHaveBeenCalledTimes(1))
+    expect(pushActions.deactivatePushToken).toHaveBeenCalledWith('G0')
+  })
+
+  it('signing out from the "Something went wrong" screen turns off an earlier visit\'s token too', async () => {
+    vi.mocked(claimActions.previewClaim).mockRejectedValue(new Error('offline'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderWith({ status: 'signed-in', user: patientB, profile: null })
+    await screen.findByText('Something went wrong')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    await waitFor(() => expect(authActions.signOutReminders).toHaveBeenCalledTimes(1))
+    expect(pushActions.deactivatePushToken).toHaveBeenCalledWith(null)
+  })
+
+  it('and says why when it cannot, on that screen', async () => {
+    vi.mocked(claimActions.previewClaim).mockRejectedValue(new Error('offline'))
+    vi.mocked(pushActions.deactivatePushToken).mockRejectedValue(new Error('offline'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderWith({ status: 'signed-in', user: patientB, profile: null })
+    await screen.findByText('Something went wrong')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+
+    expect(await screen.findByText(/Couldn't turn reminders off on this phone/)).toBeInTheDocument()
+    expect(authActions.signOutReminders).not.toHaveBeenCalled()
   })
 })
 

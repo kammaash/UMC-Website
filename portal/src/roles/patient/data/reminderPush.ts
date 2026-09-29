@@ -42,37 +42,15 @@ export async function requestPermission(): Promise<NotificationPermission> {
   return Notification.requestPermission()
 }
 
-// Chromium exposes its native PWA install sheet through beforeinstallprompt.
-// Keep the event until onboarding reaches the install step. Other browsers
-// simply never emit it (Apple uses its share-sheet/Home Screen flow instead).
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
-}
-
-let pendingInstallPrompt: BeforeInstallPromptEvent | null = null
+// Chromium offers to install the page through beforeinstallprompt, and on
+// Android shows its own "Add to Home screen" bar if nobody answers the event.
+// Android takes reminders in an ordinary tab, so the page asks nobody to
+// install it (decision 2026-09-29) — and holding the event back keeps that
+// bar from appearing on its own, unexplained. The browser's menu can still
+// install the page for anyone who wants it. Other browsers never emit the
+// event (Apple uses its share-sheet/Home Screen flow instead).
 if (typeof window !== 'undefined') {
-  window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault()
-    pendingInstallPrompt = event as BeforeInstallPromptEvent
-  })
-  window.addEventListener('appinstalled', () => { pendingInstallPrompt = null })
-}
-
-// Browsers may reject prompt() when the preceding notification dialog has
-// consumed the user activation. That is not fatal: the normal browser install
-// affordance remains available and the reminders dashboard still opens.
-export async function requestAppInstall(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
-  const event = pendingInstallPrompt
-  if (!event) return 'unavailable'
-  try {
-    await event.prompt()
-    const { outcome } = await event.userChoice
-    pendingInstallPrompt = null
-    return outcome
-  } catch {
-    return 'unavailable'
-  }
+  window.addEventListener('beforeinstallprompt', (event) => { event.preventDefault() })
 }
 
 // ── PWA head tags (manifest + Apple metas), injected only on this page so

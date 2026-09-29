@@ -33,7 +33,7 @@ vi.mock('./RevealSetup', () => ({
 }))
 vi.mock('./data/reminderPush', () => ({
   currentPlatform: vi.fn(), pushSupported: vi.fn().mockResolvedValue(true), permissionState: vi.fn(),
-  requestPermission: vi.fn(), requestAppInstall: vi.fn().mockResolvedValue('unavailable'),
+  requestPermission: vi.fn(),
   registerPushToken: vi.fn().mockResolvedValue('registered'),
   deactivatePushToken: vi.fn().mockResolvedValue(undefined),
   listenForeground: vi.fn(() => () => {}), installPwaHead: vi.fn(),
@@ -188,17 +188,21 @@ describe('RemindersPage — language', () => {
 
 describe('the Telugu wording', () => {
   it('has as many steps as the English in every set of instructions', () => {
-    expect(te.notify.askSteps).toHaveLength(en.notify.askSteps.length)
     expect(te.notify.blockedSteps).toHaveLength(en.notify.blockedSteps.length)
   })
-  it('names the phone\'s own buttons exactly as the phone shows them', () => {
-    render(<ol>{te.notify.askSteps.map((s, i) => <li key={i}>{s}</li>)}</ol>)
-    const steps = screen.getAllByRole('listitem')
-    expect(within(steps[1]).getByText('Allow')).toBeInTheDocument()
-    expect(within(steps[1]).getByText('Block')).toBeInTheDocument()
+  it("names the phone's own buttons exactly as the phone shows them", () => {
+    render(<p>{te.dash.lastStepTap}</p>)
+    expect(screen.getByText('Allow')).toBeInTheDocument()
   })
-  it('tells the patient to tap the button by the name it carries on screen', () => {
-    render(<p>{te.notify.askSteps[0]}</p>)
-    expect(screen.getByText(te.dash.enable)).toBeInTheDocument()
+  it('tells the patient to tap the re-check button by the name it carries on screen', () => {
+    render(<ol>{te.notify.blockedSteps.map((s, i) => <li key={i}>{s}</li>)}</ol>)
+    expect(within(screen.getAllByRole('listitem')[3]).getByText(te.notify.turnedOn)).toBeInTheDocument()
+  })
+  it('asks for notifications in Telugu, with one line and one button', async () => {
+    arriveWith('')
+    vi.mocked(pushActions.permissionState).mockReturnValue('default')
+    renderWith({ status: 'signed-in', user: patient, profile: claimedProfile })
+    expect(await screen.findByRole('button', { name: new RegExp(te.dash.enable) })).toBeInTheDocument()
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
   })
 })

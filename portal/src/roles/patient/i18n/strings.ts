@@ -75,7 +75,6 @@ export interface Strings {
     remindersOn: string
     remindersOff: string
     appOwns: string
-    lastStep: string
     lastStepTap: ReactNode
     enable: string
     blocked: string
@@ -91,8 +90,6 @@ export interface Strings {
   allSetTitle: string
 
   notify: {
-    askLabel: string
-    askSteps: ReactNode[]
     blockedLabel: string
     blockedSteps: ReactNode[]
     stillBlocked: string

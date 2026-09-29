@@ -80,7 +80,6 @@ export const en: Strings = {
     remindersOn: 'Reminders are on',
     remindersOff: 'Reminders are off',
     appOwns: "Your reminders come from the UMC app on this phone, so this page won't send its own. You can still check and mark your medicines here.",
-    lastStep: 'Last step: let this phone ring for your medicines.',
     lastStepTap: <>Last step: let this phone ring for your medicines. Tap below, then tap <strong>Allow</strong>.</>,
     enable: 'Enable Reminders',
     blocked: "Notifications are blocked for this site. Allow them in your browser's site settings, then reopen this page.",
@@ -101,12 +100,6 @@ export const en: Strings = {
   allSetTitle: "You're all set!",
 
   notify: {
-    askLabel: 'Let this phone ring for your medicines',
-    askSteps: [
-      <>When you tap <strong>Enable Reminders</strong> <Glyph name="phone-vibrate" /> below, a box will pop up asking if this site can send you notifications.</>,
-      <>Tap <strong>Allow</strong> in that box. Not <em>Block</em> — that stops every reminder.</>,
-      <>Your phone may ask once more whether your browser can send notifications. Tap <strong>Allow</strong> there too.</>,
-    ],
     blockedLabel: 'Notifications are blocked for this site',
     blockedSteps: [
       <>Tap the small button <Glyph name="tune" /> just left of the web address, <strong>unifiedmedicalcare.com</strong>. (It may be a lock 🔒.)</>,

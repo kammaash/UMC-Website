@@ -41,7 +41,7 @@ vi.mock('./RevealSetup', () => ({
 
 vi.mock('./data/reminderPush', () => ({
   currentPlatform: vi.fn(), pushSupported: vi.fn().mockResolvedValue(true), permissionState: vi.fn(),
-  requestPermission: vi.fn(), requestAppInstall: vi.fn().mockResolvedValue('unavailable'),
+  requestPermission: vi.fn(),
   registerPushToken: vi.fn().mockResolvedValue('registered'),
   deactivatePushToken: vi.fn().mockResolvedValue(undefined),
   listenForeground: vi.fn(() => () => {}), installPwaHead: vi.fn(),
@@ -64,6 +64,14 @@ const stepText = (n: string) => screen.getAllByRole('listitem')[Number(n) - 1].t
 // the symbols drawn inside step n, e.g. ['more', 'share']
 const glyphsIn = (n: number) => [...screen.getAllByRole('listitem')[n - 1].querySelectorAll<HTMLElement>('[data-glyph]')].map((g) => g.dataset.glyph)
 const tipGlyph = () => document.querySelector<SVGElement>('.umc-sketch [data-glyph]')?.dataset.glyph ?? null
+
+// the patient's own tap on Enable Reminders — the only thing that opens the
+// browser's permission box
+const tapEnable = Object.assign(
+  async () => { await userEvent.click(await tapEnable.ready()) },
+  { ready: () => screen.findByRole('button', { name: /Enable Reminders/ }) },
+)
+const pushModuleExports = await vi.importActual<Record<string, unknown>>('./data/reminderPush')
 
 const arrowAt = () => document.querySelector('.umc-sketch')?.getAttribute('data-at') ?? null
 const claimedProfile = { role: 'patient', patientGroupID: 'G0', fullName: 'Patient B' }
@@ -90,7 +98,6 @@ beforeEach(() => {
   vi.mocked(pushActions.pushSupported).mockResolvedValue(true)
   vi.mocked(pushActions.permissionState).mockReturnValue('default')
   vi.mocked(pushActions.requestPermission).mockResolvedValue('default')
-  vi.mocked(pushActions.requestAppInstall).mockResolvedValue('unavailable')
   vi.mocked(pushActions.registerPushToken).mockResolvedValue('registered')
   vi.mocked(pushActions.deactivatePushToken).mockResolvedValue(undefined)
 })
@@ -275,13 +282,28 @@ describe('RemindersPage — the number lives in Account details, not on the dash
 })
 
 describe('RemindersPage — push registration (claimed screen)', () => {
-  it('permission not yet asked → asks automatically and registers with the gid + platform', async () => {
+  // Decision 2026-09-29: the browser's permission box opens only from the
+  // patient's own tap. Opened by the page itself it arrived unexplained, and
+  // Chrome may show an un-tapped request quietly or not at all.
+  it('permission not yet asked → never asks by itself; waits for the tap', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await waitFor(() => expect(pushActions.requestPermission).toHaveBeenCalledTimes(1))
+    await tapEnable.ready()
+    await act(async () => {})
+    expect(pushActions.requestPermission).not.toHaveBeenCalled()
+    expect(pushActions.registerPushToken).not.toHaveBeenCalled()
+  })
+  it('the tap asks, and Allow registers with the gid + platform', async () => {
+    vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await tapEnable()
+    expect(pushActions.requestPermission).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(pushActions.registerPushToken).toHaveBeenCalledWith('G0', 'android-chrome'))
     expect(await screen.findByText(/Reminders are on/)).toBeInTheDocument()
-    await waitFor(() => expect(pushActions.requestAppInstall).toHaveBeenCalledTimes(1))
+  })
+  it('never opens the "Add to Home Screen" sheet: Android needs no install', () => {
+    // the page no longer has a way to: the action is gone from its data module
+    expect('requestAppInstall' in pushModuleExports).toBe(false)
   })
   it('permission already granted → registers silently on open (refreshes lastSeenAt), no button', async () => {
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
@@ -293,9 +315,9 @@ describe('RemindersPage — push registration (claimed screen)', () => {
   it('permission refused at the prompt → blocked message, no registration', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('denied')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await tapEnable()
     expect(await screen.findByText(/Notifications are blocked/)).toBeInTheDocument()
     expect(pushActions.registerPushToken).not.toHaveBeenCalled()
-    await waitFor(() => expect(pushActions.requestAppInstall).toHaveBeenCalledTimes(1))
   })
   it('registration failure → message with retry', async () => {
     vi.mocked(pushActions.permissionState).mockReturnValue('granted')
@@ -331,7 +353,7 @@ describe('RemindersPage — live reminders-status badge', () => {
   const badge = () => document.querySelector('.umc-rem-status')
   it('stays hidden until push has resolved one way or the other', async () => {
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: /Enable Reminders/ }) // Android ask steps — not yet answered
+    await screen.findByRole('button', { name: /Enable Reminders/ }) // not yet answered
     expect(badge()).toBeNull()
   })
   it('reminders enabled → green, labelled on', async () => {
@@ -383,25 +405,24 @@ describe('RemindersPage — live reminders-status badge', () => {
 })
 
 describe('RemindersPage — Android notification steps (claimed screen)', () => {
-  it('shows every step at once — no Next, no Done — ending on the button that opens the prompt', async () => {
+  // Decision 2026-09-29: asking is one line and one button. The three-step
+  // card that briefed the patient on the box about to appear was more to
+  // read than the box itself.
+  it('asking is one line and one button — no list of steps to read', async () => {
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: /Enable Reminders/ })
-    const steps = screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
-    expect(steps).toHaveLength(3)
-    expect(steps[1]).toMatch(/Allow/)
-    expect(steps[2]).toMatch(/ask once more/)
-    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull()
-    expect(screen.queryByRole('button', { name: /Done/ })).toBeNull()
-    expect(screen.queryByText(/Step \d of/)).toBeNull()
-    expect(pushActions.requestPermission).toHaveBeenCalledTimes(1)
+    await tapEnable.ready()
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+    expect(document.querySelector('.umc-install-card')).toBeNull()
+    expect(screen.getByText(/Last step/)).toHaveTextContent(/Allow/)
   })
-  it('prompt dismissed without an answer → steps stay, the button can be tapped again', async () => {
+  it('prompt dismissed without an answer → the button stays and can be tapped again', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('default')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: /Enable Reminders/ })
-    await userEvent.click(screen.getByRole('button', { name: /Enable Reminders/ }))
+    await tapEnable()
     expect(await screen.findByRole('button', { name: /Enable Reminders/ })).toBeInTheDocument()
     expect(pushActions.registerPushToken).not.toHaveBeenCalled()
+    await tapEnable()
+    expect(pushActions.requestPermission).toHaveBeenCalledTimes(2)
   })
   it('blocked → site-settings steps, ending on a re-check', async () => {
     vi.mocked(pushActions.permissionState).mockReturnValue('denied')
@@ -438,7 +459,7 @@ describe('RemindersPage — Android notification steps (claimed screen)', () => 
     act(() => { document.dispatchEvent(new Event('visibilitychange')) })
     await waitFor(() => expect(pushActions.registerPushToken).toHaveBeenCalledWith('G0', 'android-chrome'))
   })
-  it('elsewhere (not Android) keeps the plain button', async () => {
+  it('elsewhere (not Android) has the same plain button', async () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue({ ...ANDROID, os: 'other', tokenPlatform: 'other' })
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
     expect(await screen.findByRole('button', { name: /Enable Reminders/ })).toBeInTheDocument()
@@ -455,6 +476,7 @@ describe('RemindersPage — "You\'re all set!" once reminders are confirmed on',
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true })
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await tapEnable()
     expect(await screen.findByText("You're all set!")).toBeInTheDocument()
     expect(pushActions.registerPushToken).toHaveBeenCalledWith('G0', 'android-chrome')
     // findByText returns the moment the words reach the screen, which can be
@@ -471,12 +493,14 @@ describe('RemindersPage — "You\'re all set!" once reminders are confirmed on',
     vi.mocked(pushActions.currentPlatform).mockReturnValue({ ...ANDROID, os: 'other', tokenPlatform: 'other' })
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await tapEnable()
     expect(await screen.findByText("You're all set!")).toBeInTheDocument()
   })
   it('not before the save is confirmed — a failed save shows the error, no celebration', async () => {
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     vi.mocked(pushActions.registerPushToken).mockRejectedValue(new Error('boom'))
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await tapEnable()
     expect(await screen.findByText(/Couldn't turn on reminders/)).toBeInTheDocument()
     expect(screen.queryByText("You're all set!")).toBeNull()
   })
@@ -490,6 +514,7 @@ describe('RemindersPage — "You\'re all set!" once reminders are confirmed on',
     vi.mocked(pushActions.requestPermission).mockResolvedValue('granted')
     vi.mocked(pushActions.registerPushToken).mockResolvedValue('app-owns')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await tapEnable()
     await screen.findByText(/reminders come from the UMC app/)
     expect(screen.queryByText("You're all set!")).toBeNull()
   })
@@ -503,10 +528,16 @@ describe('RemindersPage — "You\'re all set!" once reminders are confirmed on',
 })
 
 describe('RemindersPage — the setup section arrives on its own on phones', () => {
-  it('Android: the notification steps pop in by themselves', async () => {
+  it('Android: the steps for un-blocking notifications pop in by themselves', async () => {
+    vi.mocked(pushActions.permissionState).mockReturnValue('denied')
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
-    await screen.findByRole('button', { name: /Enable Reminders/ })
+    await screen.findByText(/Notifications are blocked/)
     expect(document.querySelector('[data-reveal] .umc-install-card')).not.toBeNull()
+  })
+  it('Android: the Enable Reminders button is there at once, not held back', async () => {
+    renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
+    await tapEnable.ready()
+    expect(document.querySelector('[data-reveal]')).toBeNull()
   })
   it('iPhone/iPad morph out of the pill instead — never wrapped', () => {
     vi.mocked(pushActions.currentPlatform).mockReturnValue(IOS26_TAB)

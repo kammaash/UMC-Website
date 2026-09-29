@@ -27,7 +27,7 @@ import { previewClaim, claimGroup, usersDocExists, deleteOrphanAccount, signOutE
 import { decideAfterPreview, decideNoMatch, claimErrorReason, type ClaimErrorReason } from './data/claimDecision'
 import {
   currentPlatform, pushSupported, permissionState, requestPermission,
-  requestAppInstall, registerPushToken, deactivatePushToken, listenForeground, installPwaHead, PushSetupError,
+  registerPushToken, deactivatePushToken, listenForeground, installPwaHead, PushSetupError,
 } from './data/reminderPush'
 import { installOs, type Platform } from './data/platformGate'
 import { InstallPanel } from './InstallPanel'
@@ -150,8 +150,6 @@ export function RemindersPage() {
   // patient's own tap and the token write came back. Never on the silent
   // refresh a returning patient gets on every open.
   const [celebrating, setCelebrating] = useState(false)
-  // Prevent StrictMode/effect re-runs from opening the browser prompts twice.
-  const autoPromptedFor = useRef<string | null>(null)
   // Sign-out is blocked while this browser's push token is still live.
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState(false)
@@ -313,37 +311,24 @@ export function RemindersPage() {
       if (!(await pushSupported())) { if (!cancelled) setPush({ kind: 'gate', gate: 'unsupported' }); return }
       const perm = permissionState()
       if (cancelled) return
-      if (perm === 'granted') {
-        await register(claimedGid, false)   // silent refresh on every open (lastSeenAt)
-        await requestAppInstall()
-      }
-      else if (perm === 'denied') {
-        setPush({ kind: 'denied' })
-        await requestAppInstall()
-      }
-      else if (autoPromptedFor.current === claimedGid) setPush({ kind: 'prompt' })
-      else {
-        // Ask as soon as OTP sign-in/claiming finishes. Some browsers insist
-        // on another tap; in that case permission stays "default" and the
-        // dashboard's Enable Reminders control remains as the fallback.
-        autoPromptedFor.current = claimedGid
-        let result: NotificationPermission = 'default'
-        try { result = await requestPermission() } catch (err) { console.error('automatic permission request failed:', err) }
-        if (cancelled) return
-        if (result === 'granted') await register(claimedGid)
-        else if (result === 'denied') setPush({ kind: 'denied' })
-        else setPush({ kind: 'prompt' })
-        // On Chromium/Android this opens the native Add to Home Screen sheet
-        // when the browser has made it available. It is intentionally best
-        // effort and never blocks access to the dashboard.
-        await requestAppInstall()
-      }
+      if (perm === 'granted') await register(claimedGid, false)   // silent refresh on every open (lastSeenAt)
+      else if (perm === 'denied') setPush({ kind: 'denied' })
+      // Not asked yet: the page never asks by itself (decision 2026-09-29).
+      // A box that opens unannounced, some time after the patient's last
+      // tap, is easy to dismiss or Block — and Block sends them into the
+      // phone's Settings to undo. Chrome may also show an un-tapped request
+      // quietly, or not at all. The Enable Reminders button asks instead,
+      // from the patient's own tap (handleAllow). The Add to Home Screen
+      // sheet that used to follow is gone as well: nothing here needs it on
+      // Android, and it was a second unexplained box.
+      else setPush({ kind: 'prompt' })
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claimedGid])
 
-  // "Allow reminders" — the permission prompt must come from a tap.
+  // Enable Reminders — the one place the browser's permission box is opened,
+  // on every platform, and always from this tap.
   const handleAllow = async () => {
     if (!claimedGid) return
     let perm: NotificationPermission = 'default'
@@ -473,13 +458,8 @@ export function RemindersPage() {
               <span>{t.dash.appOwns}</span>
             </div>
           </div>
-        ) : push.kind === 'prompt' && platform.os === 'android' ? (
-          <>
-            <p className="umc-rem-lead">{t.dash.lastStep}</p>
-            {reveal('ask', <NotifyPanel mode="ask" onAllow={handleAllow} onRecheck={() => {}} />)}
-          </>
         ) : push.kind === 'denied' && platform.os === 'android' ? (
-          reveal('blocked', <NotifyPanel mode="blocked" onAllow={() => {}} onRecheck={() => void recheck(true)} stillBlocked={push.stillBlocked} />)
+          reveal('blocked', <NotifyPanel onRecheck={() => void recheck(true)} stillBlocked={push.stillBlocked} />)
         ) : push.kind === 'prompt' ? (
           <>
             <p className="umc-rem-lead">{t.dash.lastStepTap}</p>

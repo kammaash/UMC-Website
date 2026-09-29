@@ -81,6 +81,11 @@ beforeEach(() => {
   vi.clearAllMocks()
   sessionStorage.clear()
   localStorage.clear()
+  // clearAllMocks keeps a mock's last answer, so without this a test would
+  // inherit the lookup result of whichever test ran before it. The default is
+  // what the server says for a patient whose record is already claimed: the
+  // lookup rarely sees it (claimDecision.ts), and the page goes by the profile.
+  vi.mocked(claimActions.previewClaim).mockResolvedValue({ found: false })
   vi.mocked(pushActions.currentPlatform).mockReturnValue(ANDROID)
   vi.mocked(pushActions.pushSupported).mockResolvedValue(true)
   vi.mocked(pushActions.permissionState).mockReturnValue('default')
@@ -452,6 +457,12 @@ describe('RemindersPage — "You\'re all set!" once reminders are confirmed on',
     renderWith({ status: 'signed-in', user: patientB, profile: claimedProfile })
     expect(await screen.findByText("You're all set!")).toBeInTheDocument()
     expect(pushActions.registerPushToken).toHaveBeenCalledWith('G0', 'android-chrome')
+    // findByText returns the moment the words reach the screen, which can be
+    // before React has run the card's effect — the one that starts its
+    // clock. Moving time on then moves nothing, and the card is still up
+    // afterwards. Let React finish first, and check the clock is running.
+    await act(async () => {})
+    expect(vi.getTimerCount()).toBeGreaterThan(0)
     act(() => { vi.advanceTimersByTime(4000) })
     expect(screen.queryByText("You're all set!")).toBeNull()
     expect(screen.getByText('Reminders are on.')).toBeInTheDocument()

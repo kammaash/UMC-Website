@@ -6,6 +6,7 @@
 // confirmed — permission granted AND the push token saved — so it never
 // celebrates something that didn't happen.
 import { useEffect, useRef, useState } from 'react'
+import { useStrings } from './i18n/useStrings'
 
 // Matches .umc-install-card's is-closing animation; also the fallback delay
 // when the animation never runs (reduced motion, background tab).
@@ -22,6 +23,7 @@ const CONFETTI = [
   { x: 8, y: 88, r: 2.4 }, { x: 36, y: 8, r: 2 }, { x: 92, y: 110, r: 2.2 },
 ]
 export function AllSet({ line }: { line: string }) {
+  const t = useStrings()
   return (
     <div className="umc-install-yay" role="status">
       <svg className="umc-yay-badge" viewBox="0 0 120 120" aria-hidden="true">
@@ -36,7 +38,7 @@ export function AllSet({ line }: { line: string }) {
           <path className="umc-yay-tick" pathLength={100} d="M 43 61 L 55 73 L 78 48" />
         </g>
       </svg>
-      <p className="umc-yay-title">You're all set!</p>
+      <p className="umc-yay-title">{t.allSetTitle}</p>
       <p className="umc-yay-line">{line}</p>
     </div>
   )

@@ -67,17 +67,15 @@ export function browserTimezone(resolved: string | undefined): string {
 function errCode(err: unknown): string {
   return err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : ''
 }
-// claimGroup failure → what the patient reads. Codes arrive as
-// "functions/<code>" from the web SDK.
-export function claimErrorMessage(err: unknown): string {
+// claimGroup failure → why, for the page to word in the patient's language
+// (i18n/strings.ts claim.errors). Codes arrive as "functions/<code>" from the
+// web SDK.
+export type ClaimErrorReason = 'failed-precondition' | 'permission-denied' | 'unauthenticated' | 'generic'
+export function claimErrorReason(err: unknown): ClaimErrorReason {
   switch (errCode(err).replace(/^functions\//, '')) {
-    case 'failed-precondition':
-      return 'This record is already set up on another account, or no longer exists. Ask your doctor to check.'
-    case 'permission-denied':
-      return 'This record is not for your phone number. Ask your doctor to check the number they saved.'
-    case 'unauthenticated':
-      return 'Your sign-in expired. Please sign in again.'
-    default:
-      return "Couldn't finish setting up. Check your connection and try again."
+    case 'failed-precondition': return 'failed-precondition'
+    case 'permission-denied':   return 'permission-denied'
+    case 'unauthenticated':     return 'unauthenticated'
+    default:                    return 'generic'
   }
 }

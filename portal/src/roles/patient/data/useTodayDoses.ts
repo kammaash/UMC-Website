@@ -8,6 +8,8 @@ import { collection, doc, query, where } from 'firebase/firestore'
 import { db } from '../../../shared/lib/firebase'
 import { useDocData, useQueryData } from '../../../shared/data/useFirestore'
 import { buildTodayDoses, headingDate, localParts, type Dose, type LogDoc, type TabletDoc } from './doses'
+import { useLang } from '../i18n/langStore'
+import { localeOf } from '../i18n/lang'
 
 export interface TodayDoses {
   loading: boolean
@@ -19,6 +21,7 @@ export interface TodayDoses {
 }
 
 export function useTodayDoses(gid: string | null): TodayDoses {
+  const lang = useLang()
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30_000)
@@ -47,7 +50,7 @@ export function useTodayDoses(gid: string | null): TodayDoses {
     error: group.error || tablets.error || logs.error,
     doses,
     zone: local.zone,
-    dateLabel: headingDate(now, local.zone),
+    dateLabel: headingDate(now, local.zone, localeOf(lang)),
     nowMinutes: local.minutes,
   }
 }

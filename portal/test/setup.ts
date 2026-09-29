@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom'
-import { vi } from 'vitest'
+import { beforeEach, vi } from 'vitest'
+import { setLang } from '../src/roles/patient/i18n/langStore'
 
 vi.mock('../src/shared/lib/firebase', () => ({
   auth: {},
@@ -26,3 +27,9 @@ if (!hasStorage(globalThis.localStorage)) {
   }
   Object.defineProperty(globalThis, 'localStorage', { value: memory, configurable: true, writable: true })
 }
+
+// The reminders page opens in Telugu (i18n/lang.ts). The tests that were
+// written against its English wording keep reading English; the ones about
+// the language itself clear storage and call initLang() to start as a new
+// patient would.
+beforeEach(() => { setLang('en') })

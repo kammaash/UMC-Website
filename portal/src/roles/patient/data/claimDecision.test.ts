@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { decideAfterPreview, decideNoMatch, browserTimezone, claimErrorMessage } from './claimDecision'
+import { decideAfterPreview, decideNoMatch, browserTimezone, claimErrorReason } from './claimDecision'
 
 describe('decideAfterPreview', () => {
   it('skips the confirm card for a patient whose users doc already points at a group', () => {
@@ -51,14 +51,14 @@ describe('browserTimezone', () => {
   })
 })
 
-describe('claimErrorMessage', () => {
+describe('claimErrorReason', () => {
   it('maps the server codes with or without the functions/ prefix', () => {
-    expect(claimErrorMessage({ code: 'functions/permission-denied' })).toMatch(/not for your phone/)
-    expect(claimErrorMessage({ code: 'failed-precondition' })).toMatch(/another account/)
-    expect(claimErrorMessage({ code: 'functions/unauthenticated' })).toMatch(/sign in again/)
+    expect(claimErrorReason({ code: 'functions/permission-denied' })).toBe('permission-denied')
+    expect(claimErrorReason({ code: 'failed-precondition' })).toBe('failed-precondition')
+    expect(claimErrorReason({ code: 'functions/unauthenticated' })).toBe('unauthenticated')
   })
   it('falls back to a generic retry line', () => {
-    expect(claimErrorMessage(new Error('boom'))).toMatch(/try again/)
-    expect(claimErrorMessage(undefined)).toMatch(/try again/)
+    expect(claimErrorReason(new Error('boom'))).toBe('generic')
+    expect(claimErrorReason(undefined)).toBe('generic')
   })
 })

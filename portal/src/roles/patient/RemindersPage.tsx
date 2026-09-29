@@ -9,17 +9,22 @@
 //   piece 2 — shell + phone OTP sign-in
 //   piece 3 — previewGroupClaim → confirm → claimGroup, and the no-match branches
 //   piece 4 — web push registration (+ iPhone Add-to-Home-Screen gate)
-//   piece 5 — today's doses + "Taken" (TodayDoses.tsx; ?dose=<logId> highlights)   ← here
+//   piece 5 — today's doses + "Taken" (TodayDoses.tsx; ?dose=<logId> highlights)
+//   piece 7 — Telugu by default, English on the switch (i18n/; 2026-09-29)       ← here
+//
+// No wording lives in this file: state holds the REASON for a message (a
+// key), and the render looks the words up, so a language switch re-words
+// whatever is already on screen.
 //
 // Not a member-portal page: no role guard, no users/{uid} requirement, no
 // desktop-only redirect, and it must work with no App Check token at all.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '../../shared/auth/AuthContext'
 import { OtpModal } from '../../shared/auth/PhoneOtp'
-import { phoneAuthMessage, otpAuthMessage } from '../../shared/auth/phoneAuthErrors'
+import { phoneAuthReason, otpAuthReason } from '../../shared/auth/phoneAuthErrors'
 import { sendOtp, confirmOtp, resetOtp, signOutReminders } from './data/reminderAuth'
 import { previewClaim, claimGroup, usersDocExists, deleteOrphanAccount, signOutExisting, syncPatientName } from './data/reminderClaim'
-import { decideAfterPreview, decideNoMatch, claimErrorMessage } from './data/claimDecision'
+import { decideAfterPreview, decideNoMatch, claimErrorReason, type ClaimErrorReason } from './data/claimDecision'
 import {
   currentPlatform, pushSupported, permissionState, requestPermission,
   requestAppInstall, registerPushToken, deactivatePushToken, listenForeground, installPwaHead, PushSetupError,
@@ -38,6 +43,10 @@ import { TodayDoses } from './TodayDoses'
 import { AccountSheet } from './AccountSheet'
 import { AccountAvatar } from './AccountAvatar'
 import { useGreetingMorph } from './useGreetingMorph'
+import { LangSwitch } from './LangSwitch'
+import { useLang } from './i18n/langStore'
+import { useStrings } from './i18n/useStrings'
+import type { NoticeKey, PushErrorReason } from './i18n/strings'
 import './RemindersPage.css'
 
 type OtpStep = 'idle' | 'phone' | 'otp'
@@ -49,12 +58,7 @@ type ClaimState =
   // returning: signed in to a record this account had already claimed — the
   // heading says "Welcome back" instead of "You're set up".
   | { kind: 'claimed'; groupId: string; fullName: string; doctorName?: string; returning: boolean }
-  | { kind: 'error'; message: string }
-
-const EXISTING_ACCOUNT_MSG =
-  'This number already has a UMC account. Open the UMC app — your reminders are there.'
-const OTHER_ACCOUNT_MSG =
-  'This record is already set up on another account. Ask your doctor to check.'
+  | { kind: 'error'; reason: ClaimErrorReason | 'lookup-failed' }
 
 // The push half of the "claimed" screen.
 type PushState =
@@ -65,16 +69,11 @@ type PushState =
   | { kind: 'registering' }
   | { kind: 'enabled' }
   | { kind: 'app-owns' }      // the UMC app took reminders over on this phone — web push stays off
-  | { kind: 'error'; message: string }
+  | { kind: 'error'; reason: PushErrorReason }
 
-function pushErrorMessage(err: unknown): string {
+function pushErrorReason(err: unknown): PushErrorReason {
   const reason = err instanceof PushSetupError ? err.reason : ''
-  switch (reason) {
-    case 'vapid-missing': return "Reminders aren't available on this site yet. Please tell your doctor."
-    case 'no-token':      return "Couldn't set up notifications on this phone. Try again in a moment."
-    case 'write-failed':  return "Couldn't save your reminder setting. Check your connection and try again."
-    default:              return "Couldn't turn on reminders. Please try again."
-  }
+  return reason === 'vapid-missing' || reason === 'no-token' || reason === 'write-failed' ? reason : 'generic'
 }
 
 // Shown instead of the welcome screen — not alongside it — when the phone
@@ -85,6 +84,7 @@ function pushErrorMessage(err: unknown): string {
 // patient one (a doctor, pharmacy…) — asking their doctor to register them
 // would be the wrong advice, so that line says so instead (decision 2026-09-19).
 function UnregisteredOverlay({ nonPatient, onDismiss }: { nonPatient: boolean; onDismiss: () => void }) {
+  const t = useStrings()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onDismiss() }
     window.addEventListener('keydown', onKey)
@@ -93,19 +93,17 @@ function UnregisteredOverlay({ nonPatient, onDismiss }: { nonPatient: boolean; o
   return (
     <div className="umc-unreg-overlay" onClick={(e) => e.target === e.currentTarget && onDismiss()}>
       <div className="umc-unreg-body" role="dialog" aria-modal="true" aria-labelledby="umc-unreg-hdg">
-        <h1 id="umc-unreg-hdg" className="umc-unreg-hdg">Uh oh!</h1>
-        <p className="umc-unreg-lead">We don't have you on our list yet.</p>
+        <h1 id="umc-unreg-hdg" className="umc-unreg-hdg">{t.unregistered.heading}</h1>
+        <p className="umc-unreg-lead">{t.unregistered.lead}</p>
         <p className="umc-unreg-sub">
-          {nonPatient
-            ? 'This number is already registered in the UMC app as a non-patient.'
-            : "Ask your doctor about UMC to get registered — once they've added you, this same page will have your reminders ready."}
+          {nonPatient ? t.unregistered.nonPatient : t.unregistered.askDoctor}
         </p>
         <div className="umc-unreg-soon">
-          <span className="umc-unreg-soon-badge">Coming soon</span>
+          <span className="umc-unreg-soon-badge">{t.unregistered.soonBadge}</span>
           <img className="umc-unreg-soon-logo" src="/member/app_logo.png" alt="" />
-          <p>A UMC app where you'll be able to register yourself and join the UMC Network. Stay tuned!</p>
+          <p>{t.unregistered.soonText}</p>
         </div>
-        <button type="button" className="umc-unreg-btn" autoFocus onClick={onDismiss}>Understood</button>
+        <button type="button" className="umc-unreg-btn" autoFocus onClick={onDismiss}>{t.unregistered.understood}</button>
       </div>
     </div>
   )
@@ -113,10 +111,12 @@ function UnregisteredOverlay({ nonPatient, onDismiss }: { nonPatient: boolean; o
 
 export function RemindersPage() {
   const { status, user, profile } = useAuth()
+  const lang = useLang()
+  const t = useStrings()
   const [otpStep, setOtpStep] = useState<OtpStep>('idle')
   // Shown on the welcome screen after a sign-out we initiated (existing
   // account / declined match) or a failed sign-out.
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<NoticeKey | null>(null)
   // The full-screen "you're not registered" takeover — a genuinely unmatched
   // phone number gets this instead of the plain `notice` banner.
   // 'new': a number UMC has never seen; 'non-patient': an existing app
@@ -154,7 +154,7 @@ export function RemindersPage() {
   const autoPromptedFor = useRef<string | null>(null)
   // Sign-out is blocked while this browser's push token is still live.
   const [signingOut, setSigningOut] = useState(false)
-  const [signOutError, setSignOutError] = useState<string | null>(null)
+  const [signOutError, setSignOutError] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   // Both "settled" states: reminders are handled, here or by the app.
   const settled = push.kind === 'enabled' || push.kind === 'app-owns'
@@ -181,7 +181,16 @@ export function RemindersPage() {
   // states stay put; those still need the patient's attention.
   const setupTucked = settled && (morphPhase === 'corner' || morphPhase === 'avatar')
 
-  useEffect(() => { document.title = 'UMC — Medicine reminders'; installPwaHead() }, [])
+  useEffect(() => { installPwaHead() }, [])
+  // The tab's title and the document's language follow the switch; the
+  // language is handed back when the page is left, since the member portal
+  // shares this document and is English.
+  useEffect(() => {
+    const before = document.documentElement.lang
+    document.title = t.docTitle
+    document.documentElement.lang = lang
+    return () => { document.documentElement.lang = before }
+  }, [lang, t])
 
   // Shared by "no matching record" and the confirm card's "Not me": never
   // leave a phantom Auth account behind. Deletes only when uid carries no
@@ -202,7 +211,7 @@ export function RemindersPage() {
     } else {
       const role = (profile?.role || '').trim()
       if (onNonPatient && exists && role && role !== 'patient') onNonPatient()
-      else setNotice(EXISTING_ACCOUNT_MSG)
+      else setNotice('existing-account')
       await signOutExisting().catch((e) => console.error('sign-out failed:', e))
     }
   }
@@ -232,7 +241,7 @@ export function RemindersPage() {
       try { preview = await previewClaim() }
       catch (err) {
         console.error('previewGroupClaim failed:', err)
-        if (!cancelled) setClaim({ kind: 'error', message: "Couldn't look up your record. Check your connection and try again." })
+        if (!cancelled) setClaim({ kind: 'error', reason: 'lookup-failed' })
         return
       }
       const verdict = decideAfterPreview(preview, profile)
@@ -262,12 +271,12 @@ export function RemindersPage() {
             syncPatientName(uid, profile?.fullName, res.fullName).catch((e) => console.error('name sync failed:', e))
           } catch (err) {
             console.error('claimGroup failed:', err)
-            if (!cancelled) setClaim({ kind: 'error', message: claimErrorMessage(err) })
+            if (!cancelled) setClaim({ kind: 'error', reason: claimErrorReason(err) })
           }
           return
         }
         case 'other-account':
-          setNotice(OTHER_ACCOUNT_MSG)
+          setNotice('other-account')
           await signOutExisting().catch((e) => console.error('sign-out failed:', e))
           return
         case 'no-match':
@@ -294,7 +303,7 @@ export function RemindersPage() {
       setPush({ kind: enabled ? 'enabled' : 'app-owns' })
       if (enabled && celebrate) setCelebrating(true)
     }
-    catch (err) { console.error('push registration failed:', err); setPush({ kind: 'error', message: pushErrorMessage(err) }) }
+    catch (err) { console.error('push registration failed:', err); setPush({ kind: 'error', reason: pushErrorReason(err) }) }
   }
   useEffect(() => {
     let cancelled = false
@@ -367,11 +376,11 @@ export function RemindersPage() {
   // ── OTP modal callbacks ──────────────────────────────────────────────────
   const handleSendOtp = async (phone: string): Promise<string | null> => {
     try { await sendOtp(phone); setOtpStep('otp'); return null }
-    catch (err) { console.error('Phone sign-in error:', err); return phoneAuthMessage(err) }
+    catch (err) { console.error('Phone sign-in error:', err); return t.otp.sendErrors[phoneAuthReason(err)] }
   }
   const handleConfirm = async (code: string): Promise<string | null> => {
     try { await confirmOtp(code); setOtpStep('idle'); setNotice(null); return null }
-    catch (err) { console.error('OTP confirm error:', err); return otpAuthMessage(err) }
+    catch (err) { console.error('OTP confirm error:', err); return t.otp.codeErrors[otpAuthReason(err)] }
   }
   const handleCancel = () => { resetOtp(); setOtpStep('idle') }
 
@@ -384,39 +393,35 @@ export function RemindersPage() {
   // Decision 2026-09-18: if that write fails, refuse to sign out and let them
   // retry, rather than leaving a live token behind on a phone being handed on.
   const handleSignOut = async () => {
-    setNotice(null); setSignOutError(null)
+    setNotice(null); setSignOutError(false)
     if (claimedGid && push.kind === 'enabled') {
       setSigningOut(true)
       try { await deactivatePushToken(claimedGid) }
       catch (err) {
         console.error('push token deactivation failed:', err)
         setSigningOut(false)
-        setSignOutError("Couldn't turn reminders off on this phone. Check your connection and try again.")
+        setSignOutError(true)
         return
       }
       setSigningOut(false)
     }
     try { await signOutReminders() }
-    catch (err) { console.error('Sign-out error:', err); setNotice("Couldn't sign out. Please try again.") }
+    catch (err) { console.error('Sign-out error:', err); setNotice('sign-out-failed') }
   }
 
   // ── render ───────────────────────────────────────────────────────────────
   let body
   if (status === 'unknown') {
-    body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />Loading…</div>
+    body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />{t.loading}</div>
   } else if (status === 'signed-out' || !user) {
     body = (
       <main className="umc-rem-main">
-        <h1 className="umc-rem-hdg">Your medicine reminders</h1>
-        <p className="umc-rem-lead">
-          Your doctor has set up your medicines here. Sign in with
-          <strong> the phone number your doctor has</strong>, and this page will
-          remind you when each dose is due.
-        </p>
-        {notice && <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{notice}</p>}
+        <h1 className="umc-rem-hdg">{t.landing.heading}</h1>
+        <p className="umc-rem-lead">{t.landing.lead}</p>
+        {notice && <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.notices[notice]}</p>}
         {platform.gate === 'ios-add-to-home' && install && <InstallPanel beforeSignIn autoOpen={onApplePhone} os={install} browser={platform.browser} safariVersion={platform.safariVersion} onDone={handleSetupDone} />}
         {platform.gate === 'ios-too-old' && (
-          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />Reminders need iOS 16.4 or newer. Update your iPhone in Settings → General → Software Update, then come back.</p>
+          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.landing.iosTooOld}</p>
         )}
         <button
           type="button"
@@ -426,85 +431,81 @@ export function RemindersPage() {
           onClick={() => { setNotice(null); setOtpStep('phone') }}
         >
           <Icon name="phone" size={20} />
-          Continue with phone
+          {t.landing.continueWithPhone}
           <span className="umc-rem-btn-arrow"><Icon name="chevronRight" size={20} /></span>
         </button>
-        {signInHeld && <p className="umc-rem-note umc-rem-held" id="umc-rem-held">Go through the setup steps above first.</p>}
+        {signInHeld && <p className="umc-rem-note umc-rem-held" id="umc-rem-held">{t.landing.held}</p>}
         <p className="umc-rem-note" hidden={signInHeld}>
           {platform.gate === 'ios-add-to-home'
-            ? install === 'mac'
-              ? 'Sign in from the Dock app · 6-digit code by SMS'
-              : 'Sign in from the Home Screen app · 6-digit code by SMS'
-            : "You'll get a 6-digit code by SMS · No app needed"}
+            ? install === 'mac' ? t.landing.noteDock : t.landing.noteHomeScreen
+            : t.landing.noteSms}
         </p>
       </main>
     )
   } else if (claim.kind === 'looking') {
-    body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />Finding your record…</div>
+    body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />{t.claim.looking}</div>
   } else if (claim.kind === 'claiming') {
-    body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />Setting up your reminders…</div>
+    body = <div className="umc-rem-loading"><span className="umc-spin" aria-hidden="true" />{t.claim.claiming}</div>
   } else if (claim.kind === 'claimed') {
     body = (
       <main className="umc-rem-main umc-rem-dash">
         <h1 className="umc-rem-hdg">
           {morphPhase === 'inline' || morphPhase === 'morphing' ? (
-            <>{claim.returning ? 'Welcome back' : "You're set up"}{claim.fullName ? ', ' : ''}<span ref={morphNameRef} style={morphPhase === 'morphing' ? { visibility: 'hidden' } : undefined}>{formatPatientName(claim.fullName)}</span></>
-          ) : 'Reminders'}
+            <>{claim.returning ? t.dash.welcomeBack : t.dash.setUp}{claim.fullName ? ', ' : ''}<span ref={morphNameRef} style={morphPhase === 'morphing' ? { visibility: 'hidden' } : undefined}>{formatPatientName(claim.fullName)}</span></>
+          ) : t.dash.reminders}
         </h1>
         {/* The number itself lives in Account details now (decision
             2026-09-19) — this screen doesn't need to repeat it. */}
         {push.kind === 'checking' || push.kind === 'registering' ? (
-          <p className="umc-rem-lead">{push.kind === 'registering' ? 'Turning on reminders…' : 'Checking this phone…'}</p>
+          <p className="umc-rem-lead">{push.kind === 'registering' ? t.dash.registering : t.dash.checking}</p>
         ) : push.kind === 'enabled' && celebrating ? (
-          <AllSetCard line="Reminders are on. This phone will ring when each dose is due." onFinished={() => setCelebrating(false)} />
+          <AllSetCard line={t.dash.allSetLine} onFinished={() => setCelebrating(false)} />
         ) : push.kind === 'enabled' ? (
           // No banner (decision 2026-09-18): the green status light in the
           // header is the whole confirmation. This line is visually hidden
           // and only exists so a screen reader still announces the change,
           // since the light itself is aria-hidden.
-          <p className="umc-sr-only" role="status">Reminders are on.</p>
+          <p className="umc-sr-only" role="status">{t.dash.remindersOn}.</p>
         ) : push.kind === 'app-owns' ? (
           <div className={`umc-rem-setup-collapse${setupTucked ? ' is-tucked' : ''}`}>
             <div className="umc-rem-ok" role="status">
               <Icon name="checkCircle" size={22} />
-              <span>Your reminders come from the UMC app on this phone, so this page won't send its own. You can still check and mark your medicines here.</span>
+              <span>{t.dash.appOwns}</span>
             </div>
           </div>
         ) : push.kind === 'prompt' && platform.os === 'android' ? (
           <>
-            <p className="umc-rem-lead">Last step: let this phone ring for your medicines.</p>
+            <p className="umc-rem-lead">{t.dash.lastStep}</p>
             {reveal('ask', <NotifyPanel mode="ask" onAllow={handleAllow} onRecheck={() => {}} />)}
           </>
         ) : push.kind === 'denied' && platform.os === 'android' ? (
           reveal('blocked', <NotifyPanel mode="blocked" onAllow={() => {}} onRecheck={() => void recheck(true)} stillBlocked={push.stillBlocked} />)
         ) : push.kind === 'prompt' ? (
           <>
-            <p className="umc-rem-lead">Last step: let this phone ring for your medicines. Tap below, then tap <strong>Allow</strong>.</p>
+            <p className="umc-rem-lead">{t.dash.lastStepTap}</p>
             <button type="button" className="umc-btn primary full big umc-install-ring" onClick={handleAllow}>
               <span className="umc-install-ring-bell" aria-hidden="true"><Glyph name="phone-vibrate" /></span>
-              Enable Reminders
+              {t.dash.enable}
               <span className="umc-rem-btn-arrow"><Icon name="chevronRight" size={20} /></span>
             </button>
           </>
         ) : push.kind === 'denied' ? (
-          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />Notifications are blocked for this site. Allow them in your browser's site settings, then reopen this page.</p>
+          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.dash.blocked}</p>
         ) : push.kind === 'gate' && push.gate === 'ios-add-to-home' ? (
           <>
             <p className="umc-rem-lead">
-              {install === 'mac'
-                ? 'On a Mac, reminders only work from the Dock app.'
-                : `On ${install === 'ipad' ? 'an iPad' : 'an iPhone'}, reminders only work from the Home Screen app.`}
+              {install === 'mac' ? t.dash.onlyFromDock : t.dash.onlyFromHomeScreen(install === 'ipad' ? 'iPad' : 'iPhone')}
             </p>
             {install && <InstallPanel beforeSignIn={false} autoOpen={onApplePhone} os={install} browser={platform.browser} safariVersion={platform.safariVersion} />}
           </>
         ) : push.kind === 'gate' && push.gate === 'ios-too-old' ? (
-          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />Reminders need iOS 16.4 or newer. Update your iPhone in Settings → General → Software Update, then reopen this page.</p>
+          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.dash.iosTooOld}</p>
         ) : push.kind === 'gate' ? (
-          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />This browser can't show reminders. On Android open this page in Chrome; on iPhone/Mac add it to the Home Screen/Dock.</p>
+          <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.dash.unsupported}</p>
         ) : (
           <>
-            <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{push.message}</p>
-            <button type="button" className="umc-btn primary full" onClick={() => register(claim.groupId)}>Try again</button>
+            <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.dash.pushErrors[push.reason]}</p>
+            <button type="button" className="umc-btn primary full" onClick={() => register(claim.groupId)}>{t.claim.tryAgain}</button>
           </>
         )}
         <TodayDoses gid={claim.groupId} uid={user.uid} highlightLogId={highlightLogId} />
@@ -513,19 +514,26 @@ export function RemindersPage() {
   } else {
     body = (
       <main className="umc-rem-main">
-        <h1 className="umc-rem-hdg">Something went wrong</h1>
-        <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{claim.message}</p>
-        <button type="button" className="umc-btn primary full" onClick={handleRetry}>Try again</button>
-        <button type="button" className="umc-btn ghost full" onClick={handleSignOut}>Sign out</button>
+        <h1 className="umc-rem-hdg">{t.claim.errorHeading}</h1>
+        <p className="umc-rem-error" role="alert"><Icon name="warning" size={18} />{t.claim.errors[claim.reason]}</p>
+        <button type="button" className="umc-btn primary full" onClick={handleRetry}>{t.claim.tryAgain}</button>
+        <button type="button" className="umc-btn ghost full" onClick={handleSignOut}>{t.claim.signOut}</button>
       </main>
     )
   }
 
   return (
-    <div className={`umc-rem-root${unregistered ? ' is-blurred' : ''}`}>
+    <div className={`umc-rem-root${unregistered ? ' is-blurred' : ''}`} lang={lang}>
       <div className="umc-rem-brand">
         <img src="/member/app_logo.png" alt="" />
         <span>Unified Medical Care</span>
+        {/* Until the patient is on their own dashboard the right corner is
+            free, and the language switch has it (decision 2026-09-29). Once
+            claimed, the corner is the status light's and the avatar's; the
+            switch moves into the account sheet. */}
+        {claim.kind !== 'claimed' && (
+          <div className="umc-rem-brand-right"><LangSwitch /></div>
+        )}
         {claim.kind === 'claimed' && (
           <div className="umc-rem-brand-right">
             {/* Live status, independent of the "Reminders are on" banner
@@ -539,7 +547,7 @@ export function RemindersPage() {
               <span
                 className={`umc-rem-status ${settled ? 'is-on' : 'is-off'}${morphPeeking ? ' is-peeked' : ''}`}
                 aria-hidden="true"
-                title={settled ? 'Reminders are on' : 'Reminders are off'}
+                title={settled ? t.dash.remindersOn : t.dash.remindersOff}
               >
                 <Glyph name="phone-vibrate" />
               </span>
@@ -558,7 +566,7 @@ export function RemindersPage() {
                   <button
                     type="button"
                     className="umc-rem-account-btn is-shown"
-                    aria-label="Account details"
+                    aria-label={t.dash.accountDetails}
                     onClick={() => { handleAvatarClick(); setAccountOpen(true) }}
                     onMouseEnter={handlePointerEnter}
                     onMouseLeave={handlePointerLeave}
@@ -600,6 +608,7 @@ export function RemindersPage() {
           onSendOtp={handleSendOtp}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
+          labels={t.otp}
         />
       )}
       {unregistered && <UnregisteredOverlay nonPatient={unregistered === 'non-patient'} onDismiss={() => setUnregistered(null)} />}
@@ -609,7 +618,7 @@ export function RemindersPage() {
           phone={formatIndianPhone(user.phoneNumber)}
           doctorName={claim.doctorName}
           signingOut={signingOut}
-          signOutError={signOutError}
+          signOutError={signOutError ? t.dash.signOutBlocked : null}
           onSignOut={handleSignOut}
           onClose={() => setAccountOpen(false)}
         />

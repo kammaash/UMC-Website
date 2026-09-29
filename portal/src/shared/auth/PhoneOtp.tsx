@@ -8,6 +8,9 @@
 // the 6-digit code and does the same. The modal keeps itself open on an error
 // and lets the parent unmount it on success. It renders the hidden
 // #umc-recaptcha container the caller's RecaptchaVerifier attaches to.
+//
+// The wording is English unless the caller passes `labels` — the patient
+// reminders page does, in the patient's language (2026-09-29).
 import {
   useRef, useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -15,15 +18,31 @@ import {
 } from 'react'
 import './PhoneOtp.css'
 
+export interface OtpLabels {
+  phoneTitle: string
+  phoneDesc: string
+  codeTitle: string
+  codeDesc: string
+  send: string
+  verify: string
+  cancel: string
+}
+const ENGLISH: OtpLabels = {
+  phoneTitle: 'Your number', phoneDesc: 'Enter your Indian mobile number',
+  codeTitle: 'Check your phone', codeDesc: 'Enter the 6-digit code',
+  send: 'Send code →', verify: 'Verify →', cancel: 'Cancel',
+}
+
 export interface OtpModalProps {
   // Return a human-readable error message to show in the popup, or null on success.
   onConfirm: (code: string) => Promise<string | null>
   onCancel: () => void
   step: 'phone' | 'otp'
   onSendOtp: (phone: string) => Promise<string | null>
+  labels?: OtpLabels
 }
 
-export function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps) {
+export function OtpModal({ onConfirm, onCancel, step, onSendOtp, labels = ENGLISH }: OtpModalProps) {
   const isPhone = step === 'phone'
   const [val, setVal] = useState('')                              // phone (10 digits)
   const [digits, setDigits] = useState(['', '', '', '', '', ''])  // otp (6 boxes)
@@ -83,9 +102,9 @@ export function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps
   return (
     <div className="umc-otp-overlay" onClick={(e) => e.target === e.currentTarget && onCancel()}>
       <div className="umc-otp-card">
-        <h2 className="umc-otp-title">{isPhone ? 'Your number' : 'Check your phone'}</h2>
+        <h2 className="umc-otp-title">{isPhone ? labels.phoneTitle : labels.codeTitle}</h2>
         <p className="umc-otp-desc">
-          {isPhone ? 'Enter your Indian mobile number' : 'Enter the 6-digit code'}
+          {isPhone ? labels.phoneDesc : labels.codeDesc}
         </p>
 
         {isPhone ? (
@@ -122,7 +141,7 @@ export function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps
         {err && <div className="umc-otp-error" role="alert">{err}</div>}
 
         <div className="umc-otp-row">
-          <button className="umc-otp-btn umc-otp-cancel" onClick={onCancel}>Cancel</button>
+          <button className="umc-otp-btn umc-otp-cancel" onClick={onCancel}>{labels.cancel}</button>
           <button
             className={`umc-otp-btn umc-otp-submit${submitting ? ' is-loading' : ''}`}
             disabled={!ready || submitting}
@@ -130,7 +149,7 @@ export function OtpModal({ onConfirm, onCancel, step, onSendOtp }: OtpModalProps
           >
             {submitting
               ? <span className="umc-spinner" aria-hidden="true" />
-              : (isPhone ? 'Send code →' : 'Verify →')}
+              : (isPhone ? labels.send : labels.verify)}
           </button>
         </div>
       </div>

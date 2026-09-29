@@ -148,8 +148,8 @@ export function isTakenLate(dose: Pick<Dose, 'scheduledMinutes' | 'lateWindowMin
   return nowMinutes > dose.scheduledMinutes + dose.lateWindowMinutes
 }
 
-export function headingDate(now: Date, zone: string): string {
+export function headingDate(now: Date, zone: string, locale = 'en-IN'): string {
   try {
-    return new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: zone }).format(now)
+    return new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: zone }).format(now)
   } catch { return now.toDateString() }
 }

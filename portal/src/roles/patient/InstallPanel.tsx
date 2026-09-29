@@ -16,6 +16,8 @@ import { Glyph } from './glyphs'
 import { SETUP_HOLD_MS } from './setupTiming'
 import { bringToTop } from './bringToTop'
 import { AllSet, CELEBRATE_MS, EXIT_MS } from './AllSet'
+import { useStrings } from './i18n/useStrings'
+import type { Strings } from './i18n/strings'
 
 const COLLAPSED_KEY = 'umc-install-collapsed'
 // The pill → card morph.
@@ -106,133 +108,88 @@ interface Panel {
 // App" switch. That switch is the one that matters most — off, it makes a
 // plain bookmark, and a bookmark can never receive a reminder.
 //
-// `signIn`: before sign-in the patient must sign in *inside* the installed
-// app (it has its own storage); afterwards they have already done that.
-function panelFor(os: InstallOs, browser: Browser, safari: number | null, beforeSignIn: boolean): Panel {
-  const signIn = beforeSignIn ? ' and sign in there' : ''
+// `beforeSignIn`: before sign-in the patient must sign in *inside* the
+// installed app (it has its own storage); afterwards they have already done
+// that.
+//
+// Which steps, in which order, is decided here; their wording is the
+// language's own (i18n/strings.ts `install`).
+function panelFor(os: InstallOs, browser: Browser, safari: number | null, beforeSignIn: boolean, t: Strings): Panel {
+  const w = t.install
   const modern = safari !== null && safari >= 26
-  const webAppStep = <>Make sure <strong>Open as Web App</strong> <Glyph name="toggle" /> is switched on, then tap <strong>Add</strong>.</>
   const device = os === 'ipad' ? 'iPad' : 'iPhone'
-  // The notifications prompt only appears inside the installed app, after the
-  // patient taps the page's own "Enable Reminders" button. Without Allow,
-  // everything before it was for nothing.
-  const allowStep = (on: string) =>
-    <>In the app, tap <strong>Enable Reminders</strong> <Glyph name="phone-vibrate" />, then tap <strong>Allow</strong> when your {on} asks to send notifications.</>
+  const lines = (...parts: ReactNode[]) => (
+    <>{parts.map((part, i) => <span key={i} className="umc-step-line">{part}</span>)}</>
+  )
 
   // Every other iOS browser puts Share somewhere different, and some let the
   // patient move it. Send them to the one whose steps are known.
   if (os !== 'mac' && browser !== 'safari') {
-    return {
-      label: `Reminders need Safari on your ${device}`,
-      doneLine: 'See you in Safari.',
-      steps: [
-        <>These steps only work in Safari, the browser with the blue compass icon.</>,
-        <>Open this page in Safari, and follow the steps there. <Glyph name="phone-vibrate" /></>,
-      ],
-    }
+    return { label: w.needSafariLabel(device), doneLine: w.doneSafari, steps: [w.safariOnly, w.openInSafari] }
   }
   if (os === 'iphone' && modern) {
     return {
-      label: "Add this to your iPhone's Home Screen",
-      doneLine: 'Open UMC Reminders from your Home Screen whenever you are ready.',
+      label: w.addToHomeLabel(device),
+      doneLine: w.doneHome,
       lineStep: 1,
       steps: [
         <>
-          <span className="umc-step-line">Look at the bottom-right of Safari.</span>
-          <span className="umc-step-line">Tap <strong>⋯</strong> <Glyph name="more" /> beside the address bar.</span>
-          <span className="umc-step-line">Then tap <strong>Share</strong> <Glyph name="share" />.</span>
-          <span className="umc-step-line umc-step-note">No ⋯ button? Tap <strong>Share</strong> <Glyph name="share" /> in the bottom toolbar.</span>
+          <span className="umc-step-line">{w.lookBottomRight}</span>
+          <span className="umc-step-line">{w.tapMore}</span>
+          <span className="umc-step-line">{w.thenTapShare}</span>
+          <span className="umc-step-line umc-step-note">{w.noMoreButton}</span>
         </>,
-        <>Scroll down the list and tap <strong>Add to Home Screen</strong> <Glyph name="add-home" /></>,
-        webAppStep,
-        <>Open the new app icon from your Home Screen{signIn}.</>,
-        allowStep(device),
+        w.scrollListAddHome,
+        w.webApp,
+        w.openIcon(beforeSignIn),
+        // The notifications prompt only appears inside the installed app,
+        // after the patient taps the page's own "Enable Reminders" button.
+        // Without Allow, everything before it was for nothing.
+        w.allow(device),
       ],
     }
   }
   if (os === 'iphone') {
     return {
-      label: "Add this to your iPhone's Home Screen",
-      doneLine: 'Open UMC Reminders from your Home Screen whenever you are ready.',
+      label: w.addToHomeLabel(device),
+      doneLine: w.doneHome,
       lineStep: 1,
-      steps: [
-        <>
-          <span className="umc-step-line">Look at the bottom of Safari.</span>
-          <span className="umc-step-line">Tap <strong>Share</strong> <Glyph name="share" />.</span>
-        </>,
-        <>Scroll down the menu and tap <strong>Add to Home Screen</strong> <Glyph name="add-home" /></>,
-        <>Open the new app icon from your Home Screen{signIn}.</>,
-        allowStep(device),
-      ],
+      steps: [lines(w.lookBottom, w.tapShare), w.scrollMenuAddHome, w.openIcon(beforeSignIn), w.allow(device)],
     }
   }
   if (os === 'ipad' && modern) {
     return {
-      label: "Add this to your iPad's Home Screen",
-      doneLine: 'Open UMC Reminders from your Home Screen whenever you are ready.',
+      label: w.addToHomeLabel(device),
+      doneLine: w.doneHome,
       lineStep: 1,
-      steps: [
-        <>
-          <span className="umc-step-line">Look at the top-right of Safari.</span>
-          <span className="umc-step-line">Tap <strong>Share</strong> <Glyph name="share" />.</span>
-        </>,
-        <>Tap <strong>View More</strong> (or <strong>More</strong>), then <strong>Add to Home Screen</strong> <Glyph name="add-home" /></>,
-        webAppStep,
-        <>Launch the app straight from your Home Screen{signIn}.</>,
-        allowStep(device),
-      ],
+      steps: [lines(w.lookTopRight, w.tapShare), w.viewMoreAddHome, w.webApp, w.launchApp(beforeSignIn), w.allow(device)],
     }
   }
   if (os === 'ipad') {
     return {
-      label: "Add this to your iPad's Home Screen",
-      doneLine: 'Open UMC Reminders from your Home Screen whenever you are ready.',
+      label: w.addToHomeLabel(device),
+      doneLine: w.doneHome,
       lineStep: 1,
-      steps: [
-        <>
-          <span className="umc-step-line">Look at the top-right of Safari.</span>
-          <span className="umc-step-line">Tap <strong>Share</strong> <Glyph name="share" />.</span>
-        </>,
-        <>Choose <strong>Add to Home Screen</strong> <Glyph name="add-home" /> from the list.</>,
-        <>Launch the app straight from your Home Screen{signIn}.</>,
-        allowStep(device),
-      ],
+      steps: [lines(w.lookTopRight, w.tapShare), w.chooseAddHome, w.launchApp(beforeSignIn), w.allow(device)],
     }
   }
   // A Mac: each browser installs from a different place, so the steps name
   // only the one in front of the patient. No arrow on a Mac.
   if (browser === 'safari') {
     return {
-      label: "Add this to your Mac's Dock",
-      doneLine: 'Open UMC Reminders from your Dock whenever you are ready.',
-      steps: [
-        <>Look up at the menu bar at the very top left of your screen.</>,
-        <>Click <strong>File</strong>, then <strong>Add to Dock</strong> 📥</>,
-        <>Open <strong>UMC Reminders</strong> from your Dock{signIn}.</>,
-        allowStep('Mac'),
-      ],
+      label: w.addToDockLabel,
+      doneLine: w.doneDock,
+      steps: [w.macMenuBar, w.macAddToDock, w.macOpenFromDock(beforeSignIn), w.allow('Mac')],
     }
   }
   if (browser === 'chromium') {
     return {
-      label: "Add this to your Mac's Dock",
-      doneLine: 'Open UMC Reminders from your Dock whenever you are ready.',
-      steps: [
-        <>Look at the right-hand end of the address bar, at the top of this window.</>,
-        <>Click the install icon <Glyph name="install" />, then <strong>Install</strong>. No icon? Use the <strong>⋮</strong> menu → <strong>Cast, save, and share</strong> → <strong>Install page as app</strong>.</>,
-        <>Open <strong>UMC Reminders</strong> from your Dock{signIn}.</>,
-        allowStep('Mac'),
-      ],
+      label: w.addToDockLabel,
+      doneLine: w.doneDock,
+      steps: [w.macAddressBar, w.macInstall, w.macOpenFromDock(beforeSignIn), w.allow('Mac')],
     }
   }
-  return {
-    label: 'Reminders need Safari on a Mac',
-    doneLine: 'See you in Safari.',
-    steps: [
-      <>This browser can't add web apps to your Dock, so it can't show reminders.</>,
-      <>Open this page in Safari, and follow the steps there. <Glyph name="phone-vibrate" /></>,
-    ],
-  }
+  return { label: w.needSafariMacLabel, doneLine: w.doneSafari, steps: [w.cannotDock, w.openInSafari] }
 }
 
 export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone, autoOpen = false }: {
@@ -247,6 +204,7 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
   // the automatic opening (and its scroll) is called off.
   autoOpen?: boolean
 }) {
+  const t = useStrings()
   // Put away earlier this session: stays put away, nothing opens by itself.
   const [holding] = useState(() => autoOpen && SETUP_HOLD_MS > 0 && !readCollapsed())
   const [collapsed, setCollapsed] = useState(() => holding || readCollapsed())
@@ -347,13 +305,13 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
     return (
       <button type="button" ref={pill} className={`umc-install-pill${settlePill ? ' is-morph-settled' : ''}`} onClick={handleReopen}>
         <span className="umc-install-pill-bell" aria-hidden="true"><Glyph name="phone-vibrate" /></span>
-        Set up reminders
+        {t.install.pill}
         <span className="umc-install-pill-caret" aria-hidden="true">▸</span>
       </button>
     )
   }
 
-  const { label, steps, lineStep, doneLine } = panelFor(os, browser, safariVersion, beforeSignIn)
+  const { label, steps, lineStep, doneLine } = panelFor(os, browser, safariVersion, beforeSignIn, t)
   const target = installTarget(os, browser, safariVersion)
   const lineFrom = target && lineStep ? lineStep : null
   // While "You're all set!" plays, it is the whole card — the finished steps
@@ -375,12 +333,12 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
       {/* Measured, never shown — see ghostPill above. */}
       <button type="button" ref={ghostPill} className="umc-install-pill umc-install-pill-ghost" aria-hidden="true" tabIndex={-1}>
         <span className="umc-install-pill-bell" aria-hidden="true"><Glyph name="phone-vibrate" /></span>
-        Set up reminders
+        {t.install.pill}
         <span className="umc-install-pill-caret" aria-hidden="true">▸</span>
       </button>
       <div className="umc-install-top">
         <p className="umc-install-label">{label}</p>
-        <button type="button" className="umc-install-x" aria-label="Hide these steps" onClick={handleClose}>
+        <button type="button" className="umc-install-x" aria-label={t.install.hide} onClick={handleClose}>
           <span aria-hidden="true">×</span>
         </button>
       </div>
@@ -402,7 +360,7 @@ export function InstallPanel({ os, browser, safariVersion, beforeSignIn, onDone,
           already belongs to the sign-in button just below the panel. */}
       {onDone && (
         <div className="umc-install-foot">
-          <button type="button" className="umc-install-next" onClick={handleDone} disabled={celebrating}>Done <span aria-hidden="true">✓</span></button>
+          <button type="button" className="umc-install-next" onClick={handleDone} disabled={celebrating}>{t.install.done} <span aria-hidden="true">✓</span></button>
         </div>
       )}
       {/* Drawn once each time the panel opens, starting 1s in (see

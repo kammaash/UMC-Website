@@ -824,3 +824,64 @@ html:has(.umc-rem-root), html:has(.umc-rem-root) body { overscroll-behavior: non
   .umc-yay-tick { animation: none; stroke-dashoffset: 0; }
   .umc-yay-spark, .umc-yay-dot { animation: none; opacity: 0; }
 }
+
+/* ── language switch (LangSwitch.tsx) ─────────────────────────────────
+   Same recipe as the "Set up reminders" pill: a hairline outline on a faint
+   white wash, Inter, fully round. The <select> itself is the whole pill, so
+   the entire shape is the tap target and the phone opens its own picker. */
+.umc-lang { position: relative; display: inline-flex; align-items: center; flex: 0 0 auto; }
+.umc-lang-select {
+  appearance: none; -webkit-appearance: none;
+  height: 32px; padding: 0 30px 0 14px; margin: 0;
+  border-radius: 999px; border: 1px solid rgba(243, 243, 243, 0.22);
+  background: rgba(255, 255, 255, 0.06); color: var(--ink);
+  /* never the brand row's mono capitals: Telugu has no capitals, and
+     letter-spacing pulls its joined letters apart */
+  font-family: var(--sans); font-size: 13.5px; font-weight: 600; line-height: 1;
+  letter-spacing: 0; text-transform: none;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+}
+.umc-lang-select:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(243, 243, 243, 0.4); }
+.umc-lang-select:focus-visible { outline: 2px solid var(--ink-soft); outline-offset: 2px; }
+/* the opened list is drawn by the system, on its own surface */
+.umc-lang-select option { color: #0b0b0b; background: #f3f3f3; }
+.umc-lang-caret {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; color: var(--ink-soft); pointer-events: none;
+}
+/* in the account sheet: sits where a row's value would, right-aligned */
+.umc-lang.is-sheet { margin-left: auto; }
+/* The brand name and the switch share one row. On a narrow phone the name's
+   wide spacing is drawn in a little, so it stays on one line beside it. */
+.umc-rem-brand > span { white-space: nowrap; }
+@media (max-width: 400px) { .umc-rem-brand { letter-spacing: 0.14em; gap: 8px; } }
+
+/* ── Telugu ────────────────────────────────────────────────────────────
+   The page's Latin faces (DM Serif Text, Inter, JetBrains Mono) carry no
+   Telugu, so the phone's own Telugu face draws it. Three things differ from
+   Latin and are put right here, for Telugu text only:
+     • its vowel signs rise above and hang below the line, so the tight
+       heading line-heights would clip or collide — they are opened up;
+     • letter-spacing, negative or wide, breaks its joined letters — removed;
+     • there are no capitals, and the mono "eyebrow" style (tiny, widely
+       spaced capitals) is unreadable in it — those lines become plain text. */
+.umc-rem-root:lang(te) .umc-rem-hdg { line-height: 1.32; letter-spacing: 0; font-size: clamp(27px, 7.6vw, 34px); }
+.umc-rem-root:lang(te) .umc-rem-lead { line-height: 1.75; }
+.umc-rem-root:lang(te) .umc-rem-note { line-height: 1.7; }
+.umc-rem-root:lang(te) .umc-install-label { line-height: 1.45; letter-spacing: 0; }
+.umc-rem-root:lang(te) .umc-install-body { line-height: 1.75; }
+.umc-rem-root:lang(te) .umc-install-pill,
+.umc-rem-root:lang(te) .umc-btn { line-height: 1.4; letter-spacing: 0; }
+.umc-rem-root:lang(te) .umc-unreg-hdg,
+.umc-rem-root:lang(te) .umc-yay-title,
+.umc-rem-root:lang(te) .umc-rem-today-title,
+.umc-rem-root:lang(te) .umc-modal-t,
+.umc-rem-root:lang(te) .umc-empty-t { line-height: 1.4; letter-spacing: 0; }
+.umc-rem-root:lang(te) .umc-otp-title { line-height: 1.35; letter-spacing: 0; }
+.umc-rem-root:lang(te) .umc-otp-desc,
+.umc-rem-root:lang(te) .umc-unreg-soon-badge {
+  font-family: var(--sans); font-size: 13px; line-height: 1.5;
+  letter-spacing: 0; text-transform: none;
+}
+.umc-rem-root:lang(te) .umc-otp-btn { letter-spacing: 0; text-transform: none; }
